@@ -3,14 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FoodService } from '@/services/foodService';
 import { FoodItem, FoodRequest } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import {
-    Alert,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface FoodItemCardProps {
@@ -25,8 +25,8 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
   onPress,
   onRefresh,
   showActions = true,
-}) => {
-  const { user } = useAuth();
+}) => {  const { user } = useAuth();
+  const [imageLoadError, setImageLoadError] = useState(false);
   const isOwner = user?.$id === item.ownerId;
 
   const getStatusColor = (status: FoodItem['status']) => {
@@ -68,20 +68,24 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
       default: return '📦';
     }
   };
-
   const formatDate = (date: Date) => {
-    const today = new Date();
-    const diffTime = date.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-      return `Expired ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} ago`;
-    } else if (diffDays === 0) {
-      return 'Expires today';
-    } else if (diffDays === 1) {
-      return 'Expires tomorrow';
-    } else {
-      return `Expires in ${diffDays} days`;
+    try {
+      const today = new Date();
+      const diffTime = date.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        return `Expired ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} ago`;
+      } else if (diffDays === 0) {
+        return 'Expires today';
+      } else if (diffDays === 1) {
+        return 'Expires tomorrow';
+      } else {
+        return `Expires in ${diffDays} days`;
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Date unavailable';
     }
   };
 
@@ -171,8 +175,8 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
       ]
     );
   };
-
   const isExpiringSoon = () => {
+    if (!item.expiryDate) return false;
     const today = new Date();
     const diffTime = item.expiryDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -180,14 +184,27 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
   };
 
   const isExpired = () => {
+    if (!item.expiryDate) return false;
     const today = new Date();
     return item.expiryDate.getTime() < today.getTime();
-  };
-
-  return (
+  };return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: item.imageUri }} style={styles.image} />
+      <View style={styles.imageContainer}>        {item.imageUri && !imageLoadError ? (
+          <Image 
+            source={{ uri: item.imageUri }} 
+            style={styles.image}
+            onError={(error) => {
+              console.error('Error loading image:', error.nativeEvent?.error || 'Unknown error');
+              setImageLoadError(true);
+            }}
+          />
+        ) : (          <View style={[styles.image, styles.placeholderImage]}>
+            <Ionicons name="image" size={40} color="#ccc" />
+            <Text style={styles.placeholderText}>
+              {imageLoadError ? 'Image unavailable' : 'No image'}
+            </Text>
+          </View>
+        )}
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
         </View>
@@ -198,27 +215,27 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
         )}
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.header}>
+      <View style={styles.content}>        <View style={styles.header}>
           <Text style={styles.title} numberOfLines={1}>
-            {getCategoryEmoji(item.category)} {item.title}
+            {getCategoryEmoji(item.category)} {item.title || 'Untitled'}
           </Text>
-          <Text style={styles.owner}>by {item.ownerName}</Text>
+          <View style={styles.ownerInfo}>
+            <Text style={styles.owner}>by {item.ownerName || 'Unknown'}</Text>
+          </View>
         </View>
 
         <Text style={styles.description} numberOfLines={2}>
-          {item.description}
+          {item.description || 'No description available'}
         </Text>
 
         <View style={styles.details}>
           <View style={styles.detailItem}>
-            <Ionicons name="calendar" size={14} color={Colors.light.tabIconDefault} />
-            <Text style={[
+            <Ionicons name="calendar" size={14} color={Colors.light.tabIconDefault} />            <Text style={[
               styles.detailText,
               isExpired() && styles.expiredText,
               isExpiringSoon() && styles.expiringSoonText,
             ]}>
-              {formatDate(item.expiryDate)}
+              {item.expiryDate ? formatDate(item.expiryDate) : 'No expiry date'}
             </Text>
           </View>
           {item.location && (
@@ -234,7 +251,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
             {!isOwner && item.status === 'available' && (
               <TouchableOpacity style={styles.requestButton} onPress={handleRequest}>
                 <Ionicons name="hand-left" size={16} color="white" />
-                <Text style={styles.requestButtonText}>Request</Text>
+                <Text style={styles.requestButtonText}>Request Food</Text>
               </TouchableOpacity>
             )}
             
@@ -274,12 +291,21 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-  },
-  image: {
+  },  image: {
     width: '100%',
     height: 200,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
+  },  placeholderImage: {
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
   },
   statusBadge: {
     position: 'absolute',
@@ -305,10 +331,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 16,
-  },
+    padding: 16,  },
   header: {
     marginBottom: 8,
+  },
+  ownerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 18,

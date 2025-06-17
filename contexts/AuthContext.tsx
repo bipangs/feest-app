@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Account, Client, ID, Models } from 'react-native-appwrite';
+import { Account, Client, Databases, ID, Models, Query } from 'react-native-appwrite';
 
 // Appwrite Client and Account Setup
 const client = new Client();
@@ -9,9 +9,23 @@ client
   .setPlatform('com.streetbyteid.feest');
 
 const account = new Account(client);
+const databases = new Databases(client);
+
+const DATABASE_ID = '685060470025155bac52';
+const USER_PROFILES_COLLECTION_ID = 'user-profiles';
+
+interface UserProfile {
+  $id?: string;
+  userId: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 interface AuthContextType {
   user: Models.User<Models.Preferences> | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
@@ -31,24 +45,75 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     checkUser();
   }, []);
-
   const checkUser = async () => {
     try {
       const currentUser = await account.get();
       setUser(currentUser);
+      
+      // Fetch user profile
+      await fetchUserProfile(currentUser.$id);
     } catch (error) {
       setUser(null);
+      setUserProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const profiles = await databases.listDocuments(
+        DATABASE_ID,
+        USER_PROFILES_COLLECTION_ID,
+        [Query.equal('userId', userId)]
+      );      if (profiles.documents.length > 0) {
+        const profile = profiles.documents[0];
+        setUserProfile({
+          $id: profile.$id,
+          userId: profile.userId,
+          name: profile.name,
+          email: profile.email,
+          createdAt: new Date(profile.createdAt),
+          updatedAt: new Date(profile.updatedAt),
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+  const createUserProfile = async (userId: string, email: string, name: string) => {
+    try {
+      const profile = await databases.createDocument(
+        DATABASE_ID,
+        USER_PROFILES_COLLECTION_ID,
+        ID.unique(),
+        {
+          userId,
+          name,
+          email,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      );
+      setUserProfile({
+        $id: profile.$id,
+        userId: profile.userId,
+        name: profile.name,
+        email: profile.email,
+        createdAt: new Date(profile.createdAt),
+        updatedAt: new Date(profile.updatedAt),
+      });
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+    }
+  };
   const login = async (email: string, password: string) => {
     try {
       setError(null);
@@ -56,6 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await account.createEmailPasswordSession(email, password);
       const currentUser = await account.get();
       setUser(currentUser);
+      
+      // Fetch user profile after successful login
+      await fetchUserProfile(currentUser.$id);
     } catch (error: any) {
       setError(error.message || 'Login failed');
       throw error;
@@ -63,13 +131,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   };
-
   const register = async (email: string, password: string, name: string) => {
     try {
       setError(null);
       setLoading(true);
-      await account.create(ID.unique(), email, password, name);
+      const user = await account.create(ID.unique(), email, password, name);
       await login(email, password);
+        // Create user profile
+      await createUserProfile(user.$id, email, name);
     } catch (error: any) {
       setError(error.message || 'Registration failed');
       throw error;
@@ -77,18 +146,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   };
-
   const logout = async () => {
     try {
       await account.deleteSessions();
       setUser(null);
+      setUserProfile(null);
     } catch (error: any) {
       setError(error.message || 'Logout failed');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, error }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, login, register, logout, error }}>
       {children}
     </AuthContext.Provider>
   );

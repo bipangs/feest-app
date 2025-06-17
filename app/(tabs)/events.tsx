@@ -1,16 +1,18 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
 export default function EventsScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="title">Events</ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.safeArea}>
+      <ThemedView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <ThemedView style={styles.titleContainer}>
+            <ThemedText type="title">Events</ThemedText>
+          </ThemedView>
         
         <ThemedView style={styles.section}>
           <ThemedText type="subtitle">Upcoming Events</ThemedText>
@@ -25,17 +27,20 @@ export default function EventsScreen() {
           <ThemedText type="subtitle">Event Categories</ThemedText>
           <ThemedText>Browse events by cuisine type, location, or price range.</ThemedText>
         </ThemedView>
-        
-        <ThemedView style={styles.section}>
+          <ThemedView style={styles.section}>
           <ThemedText type="subtitle">Create Event</ThemedText>
           <ThemedText>Host your own food event and invite others to join.</ThemedText>
         </ThemedView>
       </ScrollView>
     </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },

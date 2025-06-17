@@ -1,30 +1,31 @@
-import { AddFoodForm } from '@/components/food/AddFoodForm';
 import { FoodItemCard } from '@/components/food/FoodItemCard';
+import { FoodMap } from '@/components/food/FoodMap';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFoodItems, useUserFoodItems } from '@/hooks/useFoodItems';
 import { FoodItem } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    FlatList,
-    Modal,
-    RefreshControl,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type FilterType = 'all' | 'available' | 'my-items';
+type ViewType = 'list' | 'map';
 
 export default function FoodScreen() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { foodItems, loading, refreshing, error, refresh } = useFoodItems();
   const { userFoodItems, refresh: refreshUserItems } = useUserFoodItems();
-  const [showAddForm, setShowAddForm] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [viewType, setViewType] = useState<ViewType>('list');
+  const [selectedFoodId, setSelectedFoodId] = useState<string | undefined>();
 
   const getFilteredItems = (): FoodItem[] => {
     switch (filter) {
@@ -36,13 +37,6 @@ export default function FoodScreen() {
         return foodItems;
     }
   };
-
-  const handleAddFood = () => {
-    setShowAddForm(false);
-    refresh();
-    refreshUserItems();
-  };
-
   const handleRefresh = () => {
     refresh();
     if (filter === 'my-items') {
@@ -73,10 +67,23 @@ export default function FoodScreen() {
       </Text>
     </TouchableOpacity>
   );
-  const renderFoodItem = ({ item }: { item: FoodItem }) => (
-    <FoodItemCard item={item} onRefresh={handleRefresh} />
+    const renderFoodItem = ({ item }: { item: FoodItem }) => (
+    <FoodItemCard 
+      item={item} 
+      onRefresh={handleRefresh}
+      onPress={() => {
+        setSelectedFoodId(item.$id);
+        // TODO: Navigate to food item details or handle card press
+        console.log('Food item pressed:', item.title);
+      }}
+    />
   );
 
+  const handleMapMarkerPress = (item: FoodItem) => {
+    setSelectedFoodId(item.$id);
+    // TODO: Show item details or handle marker press
+    console.log('Map marker pressed:', item.title);
+  };
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="restaurant" size={80} color={Colors.light.tabIconDefault} />
@@ -85,29 +92,33 @@ export default function FoodScreen() {
         {filter === 'available' 
           ? 'No available food items at the moment.'
           : 'Be the first to share food with your community!'}
-      </Text>
-      <TouchableOpacity
+      </Text>      <TouchableOpacity
         style={styles.addFirstButton}
-        onPress={() => setShowAddForm(true)}
+        onPress={() => router.navigate('/(tabs)')}
       >
-        <Text style={styles.addFirstButtonText}>Add Food Item</Text>
+        <Text style={styles.addFirstButtonText}>Go to Home to Add Food</Text>
       </TouchableOpacity>
     </View>
-  );
-
-  return (
-    <SafeAreaView style={styles.container}>
+  );  return (
+    <View style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Food Share</Text>
           <Text style={styles.headerSubtitle}>Share food, reduce waste</Text>
+        </View>        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.viewToggle, viewType === 'list' && styles.viewToggleActive]}
+            onPress={() => setViewType('list')}
+          >
+            <Ionicons name="list" size={20} color={viewType === 'list' ? 'white' : Colors.light.tabIconDefault} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewToggle, viewType === 'map' && styles.viewToggleActive]}
+            onPress={() => setViewType('map')}
+          >
+            <Ionicons name="map" size={20} color={viewType === 'map' ? 'white' : Colors.light.tabIconDefault} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddForm(true)}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.filterContainer}>
@@ -116,28 +127,26 @@ export default function FoodScreen() {
         {renderFilterButton('my-items', 'My Items', 'person')}
       </View>
 
-      <FlatList
-        data={getFilteredItems()}
-        renderItem={renderFoodItem}
-        keyExtractor={(item) => item.$id!}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListEmptyComponent={renderEmpty}
-      />
-
-      <Modal
-        visible={showAddForm}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <AddFoodForm
-          onFoodAdded={handleAddFood}
-          onCancel={() => setShowAddForm(false)}
+      {viewType === 'list' ? (
+        <FlatList
+          data={getFilteredItems()}
+          renderItem={renderFoodItem}
+          keyExtractor={(item) => item.$id!}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          ListEmptyComponent={renderEmpty}
         />
-      </Modal>
-    </SafeAreaView>
+      ) : (
+        <FoodMap
+          foodItems={getFilteredItems()}          selectedFoodId={selectedFoodId}
+          onMarkerPress={handleMapMarkerPress}
+          style={styles.mapContainer}
+        />
+      )}
+    </View>
   );
 }
 
@@ -160,19 +169,23 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: Colors.light.text,
-  },
-  headerSubtitle: {
+  },  headerSubtitle: {
     fontSize: 14,
     color: Colors.light.tabIconDefault,
     marginTop: 2,
-  },
-  addButton: {
-    backgroundColor: Colors.light.tint,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  },  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },  viewToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },  viewToggleActive: {
+    backgroundColor: Colors.light.tint,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -233,10 +246,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
-  },
-  addFirstButtonText: {
+  },  addFirstButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  mapContainer: {
+    flex: 1,
   },
 });

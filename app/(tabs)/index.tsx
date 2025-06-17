@@ -1,19 +1,6 @@
-import FoodScreen from '@/components/food/FoodScreen';
-import { CustomColors } from '@/constants/Colors';
+import HomeScreen from '@/components/home/HomeScreen';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
 
-export default function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <FoodScreen />
-    </View>
-  );
+export default function IndexScreen() {
+  return <HomeScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: CustomColors.white,
-  },
-});

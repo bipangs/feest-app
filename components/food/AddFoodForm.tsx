@@ -1,10 +1,11 @@
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { FoodService } from '@/services/foodService';
+import { LocationData, LocationService } from '@/services/locationService';
 import { FoodCategory, FoodItem } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Image,
@@ -33,8 +34,9 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
   const [imageUri, setImageUri] = useState('');
   const [expiryDate, setExpiryDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [category, setCategory] = useState<FoodCategory>('other');
-  const [location, setLocation] = useState('');
+  const [category, setCategory] = useState<FoodCategory>('other');  const [location, setLocation] = useState('');
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +51,58 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
     { value: 'beverages', label: '🥤 Beverages' },
     { value: 'other', label: '📦 Other' },
   ];
+
+  useEffect(() => {
+    // Automatically detect location when component mounts
+    detectLocation();
+  }, []);
+  const detectLocation = async () => {
+    setLoadingLocation(true);
+    try {
+      const detectedLocation = await LocationService.getLocationAuto();
+      if (detectedLocation) {
+        setLocationData(detectedLocation);
+        setLocation(detectedLocation.address);
+      } else {
+        Alert.alert(
+          'Location Detection Failed',
+          'Could not detect your location automatically. You can enter it manually.'
+        );
+      }
+    } catch (error) {
+      console.error('Error detecting location:', error);
+      Alert.alert(
+        'Location Error',
+        'Failed to detect location. Please enter manually.'
+      );
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const detectLocationIPOnly = async () => {
+    setLoadingLocation(true);
+    try {
+      const detectedLocation = await LocationService.getLocationIPOnly();
+      if (detectedLocation) {
+        setLocationData(detectedLocation);
+        setLocation(detectedLocation.address);
+      } else {
+        Alert.alert(
+          'IP Location Failed',
+          'Could not detect location from IP. Please enter manually.'
+        );
+      }
+    } catch (error) {
+      console.error('Error detecting IP location:', error);
+      Alert.alert(
+        'Location Error',
+        'Failed to detect location. Please enter manually.'
+      );
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -75,9 +129,7 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
     try {
       // Upload image first
       const fileName = `food_${Date.now()}.jpg`;
-      const uploadedImageUri = await FoodService.uploadFoodImage(imageUri, fileName);
-
-      // Create food item
+      const uploadedImageUri = await FoodService.uploadFoodImage(imageUri, fileName);      // Create food item
       const foodData: Omit<FoodItem, '$id' | 'createdAt' | 'updatedAt'> = {
         title: title.trim(),
         description: description.trim(),
@@ -87,12 +139,13 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
         ownerId: user.$id,
         ownerName: user.name || user.email,
         location: location.trim(),
+        latitude: locationData?.latitude,
+        longitude: locationData?.longitude,
         category,
-      };
-
-      await FoodService.createFoodItem(foodData);
+      };await FoodService.createFoodItem(foodData);
       Alert.alert('Success', 'Food item added successfully!');
-      onFoodAdded();    } catch (error) {
+      onFoodAdded();
+    } catch (error) {
       console.error('Error adding food item:', error);
       
       // Check if it's an authentication error
@@ -130,14 +183,14 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
       day: 'numeric',
     });
   };
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
           <Ionicons name="close" size={24} color={Colors.light.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Food Item</Text>
+        </TouchableOpacity>        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Add Food Item</Text>
+        </View>
         <View style={styles.placeholder} />
       </View>
 
@@ -217,21 +270,69 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
             <Text style={styles.dateButtonText}>{formatDate(expiryDate)}</Text>
             <Ionicons name="calendar" size={20} color={Colors.light.tabIconDefault} />
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Location (Optional)</Text>
+        </View>        <View style={styles.inputGroup}>
+          <View style={styles.locationHeader}>
+            <Text style={styles.label}>Location</Text>
+            <View style={styles.locationButtons}>
+              <TouchableOpacity
+                style={styles.locationButton}
+                onPress={detectLocation}
+                disabled={loadingLocation}
+              >
+                <Ionicons 
+                  name={loadingLocation ? "refresh" : "location"} 
+                  size={16} 
+                  color={Colors.light.tint}
+                  style={loadingLocation ? styles.spinning : undefined}
+                />
+                <Text style={styles.locationButtonText}>
+                  GPS
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.locationButton, styles.locationButtonSecondary]}
+                onPress={detectLocationIPOnly}
+                disabled={loadingLocation}
+              >
+                <Ionicons 
+                  name="globe" 
+                  size={16} 
+                  color={Colors.light.tabIconDefault}
+                />
+                <Text style={[styles.locationButtonText, styles.locationButtonTextSecondary]}>
+                  IP
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {locationData && (
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationInfoText}>
+                📍 {LocationService.formatCoordinates(locationData.latitude, locationData.longitude)}
+                {locationData.source && (
+                  <Text style={styles.locationSource}> • {locationData.source.toUpperCase()}</Text>
+                )}                {locationData.accuracy && locationData.accuracy > 0 && (
+                  <Text style={styles.locationAccuracy}> • ±{Math.round(locationData.accuracy)}m</Text>
+                )}
+              </Text>
+            </View>
+          )}
+          
           <TextInput
             style={styles.input}
             value={location}
             onChangeText={setLocation}
-            placeholder="e.g., Downtown area"
+            placeholder={loadingLocation ? "Detecting location..." : "e.g., Downtown area or leave blank for detected location"}
             placeholderTextColor={Colors.light.tabIconDefault}
+            editable={!loadingLocation}
           />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        </View><TouchableOpacity
+          style={[
+            styles.submitButton, 
+            loading && styles.submitButtonDisabled
+          ]}
           onPress={handleSubmit}
           disabled={loading}
         >
@@ -273,12 +374,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: Colors.light.background,
-    borderBottomWidth: 1,
+    backgroundColor: Colors.light.background,    borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   cancelButton: {
     padding: 8,
+  },
+  headerContent: {
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
@@ -378,13 +481,61 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 20,
-  },
-  submitButtonDisabled: {
+  },  submitButtonDisabled: {
     backgroundColor: Colors.light.tabIconDefault,
-  },
-  submitButtonText: {
+  },  submitButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },  locationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },  locationButtons: {
+    flexDirection: 'row',
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    marginLeft: 8,
+  },
+  locationButtonSecondary: {
+    backgroundColor: '#f8f9fa',
+  },
+  locationButtonText: {
+    fontSize: 14,
+    color: Colors.light.tint,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  locationButtonTextSecondary: {
+    color: Colors.light.tabIconDefault,
+  },
+  locationInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  locationInfoText: {
+    fontSize: 12,
+    color: Colors.light.tabIconDefault,
+    fontFamily: 'monospace',
+  },
+  locationSource: {
+    color: Colors.light.tint,
+    fontWeight: '600',
+  },
+  locationAccuracy: {
+    color: '#28a745',
+    fontWeight: '500',
+  },
+  spinning: {
+    // Animation can be added here if needed
   },
 });

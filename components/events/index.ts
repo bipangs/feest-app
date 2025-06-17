@@ -1,0 +1,1 @@
+export { EventHorizontalCard } from './EventHorizontalCard';

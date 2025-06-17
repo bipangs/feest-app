@@ -1,18 +1,18 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { FoodService } from '@/services/foodService';
 import { FoodItem, FoodRequest } from '@/types/food';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export const useFoodItems = () => {
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchFoodItems = useCallback(async (status?: string) => {
+  
+  const fetchFoodItems = async (status?: string) => {
     try {
       setError(null);
-      const items = await FoodService.getFoodItems(status);
+      const items = await FoodService.getFoodItemsWithLocation(status);
       setFoodItems(items);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch food items');
@@ -20,16 +20,47 @@ export const useFoodItems = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  };
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     setRefreshing(true);
-    await fetchFoodItems();
-  }, [fetchFoodItems]);
-
+    try {
+      setError(null);
+      const items = await FoodService.getFoodItemsWithLocation();
+      setFoodItems(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch food items');
+    } finally {
+      setRefreshing(false);
+    }
+  };
   useEffect(() => {
-    fetchFoodItems();
-  }, [fetchFoodItems]);
+    let mounted = true;
+    
+    const loadInitialData = async () => {
+      try {
+        setError(null);
+        const items = await FoodService.getFoodItemsWithLocation();
+        if (mounted) {
+          setFoodItems(items);
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch food items');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     foodItems,
@@ -48,7 +79,7 @@ export const useUserFoodItems = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUserFoodItems = useCallback(async () => {
+  const fetchUserFoodItems = async () => {
     if (!user) return;
     
     try {
@@ -61,16 +92,53 @@ export const useUserFoodItems = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  };
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
+    if (!user) return;
+    
     setRefreshing(true);
-    await fetchUserFoodItems();
-  }, [fetchUserFoodItems]);
-
+    try {
+      setError(null);
+      const items = await FoodService.getUserFoodItems(user.$id);
+      setUserFoodItems(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch your food items');
+    } finally {
+      setRefreshing(false);
+    }
+  };
   useEffect(() => {
-    fetchUserFoodItems();
-  }, [fetchUserFoodItems]);
+    let mounted = true;
+    
+    const loadUserData = async () => {
+      if (!user) return;
+      
+      try {
+        setError(null);
+        const items = await FoodService.getUserFoodItems(user.$id);
+        if (mounted) {
+          setUserFoodItems(items);
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch your food items');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    if (user) {
+      loadUserData();
+    }
+    
+    return () => {
+      mounted = false;
+    };
+  }, [user?.$id]); // Use user.$id instead of the whole user object
 
   return {
     userFoodItems,
@@ -87,7 +155,7 @@ export const useFoodRequests = (foodItemId: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRequests = useCallback(async () => {
+  const fetchRequests = async () => {
     try {
       setError(null);
       const fetchedRequests = await FoodService.getFoodRequests(foodItemId);
@@ -97,13 +165,36 @@ export const useFoodRequests = (foodItemId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [foodItemId]);
-
+  };
   useEffect(() => {
-    if (foodItemId) {
-      fetchRequests();
-    }
-  }, [fetchRequests, foodItemId]);
+    let mounted = true;
+    
+    const loadRequests = async () => {
+      if (!foodItemId) return;
+      
+      try {
+        setError(null);
+        const fetchedRequests = await FoodService.getFoodRequests(foodItemId);
+        if (mounted) {
+          setRequests(fetchedRequests);
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch requests');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadRequests();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [foodItemId]);
 
   return {
     requests,

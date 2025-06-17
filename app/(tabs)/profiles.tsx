@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -31,13 +32,13 @@ export default function ProfilesScreen() {
       ]
     );
   };
-
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="title">Profile</ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.safeArea}>
+      <ThemedView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <ThemedView style={styles.titleContainer}>
+            <ThemedText type="title">Profile</ThemedText>
+          </ThemedView>
 
         {user && (
           <ThemedView style={styles.userInfoSection}>
@@ -69,17 +70,19 @@ export default function ProfilesScreen() {
         <ThemedView style={styles.section}>
           <ThemedText type="subtitle">Help & Support</ThemedText>
           <ThemedText>Get help, report issues, or contact support.</ThemedText>
-        </ThemedView>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        </ThemedView>        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <ThemedText style={styles.logoutText}>Logout</ThemedText>
         </TouchableOpacity>
       </ScrollView>
     </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
