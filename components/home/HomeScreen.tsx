@@ -219,8 +219,7 @@ export default function HomeScreen() {
             >
               <Ionicons name="add-circle-outline" size={24} color={Colors.light.tint} />
               <ThemedText style={styles.actionButtonText}>Share Food</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity 
+            </TouchableOpacity>            <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => router.push('/(tabs)/events')}
             >

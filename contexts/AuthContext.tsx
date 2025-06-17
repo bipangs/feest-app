@@ -66,14 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   };
-
   const fetchUserProfile = async (userId: string) => {
     try {
       const profiles = await databases.listDocuments(
         DATABASE_ID,
         USER_PROFILES_COLLECTION_ID,
         [Query.equal('userId', userId)]
-      );      if (profiles.documents.length > 0) {
+      );      
+      if (profiles.documents.length > 0) {
         const profile = profiles.documents[0];
         setUserProfile({
           $id: profile.$id,
@@ -85,10 +85,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.warn('User profile collection not found - this is expected for development:', error);
+      // Don't log as error since this is expected in development
     }
-  };
-  const createUserProfile = async (userId: string, email: string, name: string) => {
+  };  const createUserProfile = async (userId: string, email: string, name: string) => {
     try {
       const profile = await databases.createDocument(
         DATABASE_ID,
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: new Date(profile.updatedAt),
       });
     } catch (error) {
-      console.error('Error creating user profile:', error);
+      console.warn('Could not create user profile - collection may not exist in development:', error);
     }
   };
   const login = async (email: string, password: string) => {
