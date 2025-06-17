@@ -6,6 +6,14 @@
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
+// Custom color palette
+export const CustomColors = {
+  white: '#ffffff',
+  black: '#1a1a1a',
+  darkForestGreen: '#1f4a3c',
+  blue: '#007AFF', // iOS system blue, good for buttons
+};
+
 export const Colors = {
   light: {
     text: '#11181C',
