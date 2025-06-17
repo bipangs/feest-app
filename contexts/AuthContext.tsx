@@ -102,7 +102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         USER_PROFILES_COLLECTION_ID,
         userId, // Use userId as document ID directly
         {
-          userId,
           name,
           email,
           phone: '',
@@ -113,7 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       );
       setUserProfile({
-        $id: profile.$id,
         userId: profile.userId,
         name: profile.name,
         email: profile.email,

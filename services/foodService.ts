@@ -312,6 +312,27 @@ export class FoodService {  // Ensure user is authenticated
       return false;
     }
   }
+
+  // Get a single food item by ID
+  static async getFoodItem(foodItemId: string): Promise<FoodItem> {
+    try {
+      const response = await databases.getDocument(
+        DATABASE_ID,
+        FOOD_COLLECTION_ID,
+        foodItemId
+      );
+      
+      return {
+        ...response,
+        expiryDate: new Date(response.expiryDate),
+        createdAt: new Date(response.createdAt),
+        updatedAt: new Date(response.updatedAt),
+      } as unknown as FoodItem;
+    } catch (error) {
+      console.error('Error fetching food item:', error);
+      throw error;
+    }
+  }
 }
 
 // Mock data for testing - remove when backend is ready

@@ -1,16 +1,17 @@
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { FoodService } from '@/services/foodService';
-import { FoodItem, FoodRequest } from '@/types/food';
+import { TransactionService } from '@/services/transactionService';
+import { FoodItem } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 interface FoodItemCardProps {
@@ -88,7 +89,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
       return 'Date unavailable';
     }
   };
-
   const handleRequest = async () => {
     if (!user) {
       Alert.alert('Error', 'Please login to request food');
@@ -105,21 +105,22 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
       'Add a message (optional):',
       async (message) => {
         try {
-          const requestData: Omit<FoodRequest, '$id' | 'createdAt'> = {
-            foodItemId: item.$id!,
-            requesterId: user.$id,
-            requesterName: user.name || user.email,
-            message: message || '',
-            status: 'pending',
-          };
-
-          await FoodService.createFoodRequest(requestData);
-          await FoodService.updateFoodItemStatus(item.$id!, 'requested');
+          // Create transaction instead of just a request
+          await TransactionService.createTransaction(
+            item.$id!,
+            item.ownerId,
+            item.ownerName,
+            message || undefined
+          );
           
-          Alert.alert('Success', 'Food request sent successfully!');
+          Alert.alert(
+            'Success', 
+            'Food request sent successfully! A private chat has been created with the owner.',
+            [{ text: 'OK' }]
+          );
           onRefresh?.();
         } catch (error) {
-          console.error('Error requesting food:', error);
+          console.error('Error creating transaction:', error);
           Alert.alert('Error', 'Failed to send request. Please try again.');
         }
       },

@@ -19,7 +19,7 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   message: string;
-  messageType: 'text' | 'image' | 'system';
+  messageType: 'text' | 'image' | 'system' | 'completion_photo';
   createdAt: Date;
 }
 

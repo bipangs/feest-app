@@ -14,7 +14,7 @@ const DATABASE_ID = '685060470025155bac52';
 const CHAT_ROOMS_COLLECTION_ID = 'chat-rooms';
 const CHAT_MESSAGES_COLLECTION_ID = 'chat-messages';
 const CHAT_PARTICIPANTS_COLLECTION_ID = 'chat-participants';
-const USER_PROFILES_COLLECTION_ID = 'user-profiles';
+const USER_PROFILES_COLLECTION_ID = 'user_profiles';
 
 export class ChatService {  // Ensure user is authenticated
   static async ensureUserPermissions(): Promise<void> {
@@ -120,9 +120,8 @@ export class ChatService {  // Ensure user is authenticated
     } catch (error: any) {
       throw new Error(`Failed to add participant: ${error.message}`);
     }  }
-
   // Send a message to a chat room
-  static async sendMessage(chatRoomId: string, message: string, messageType: 'text' | 'image' = 'text'): Promise<ChatMessage> {
+  static async sendMessage(chatRoomId: string, message: string, messageType: 'text' | 'image' | 'system' | 'completion_photo' = 'text'): Promise<ChatMessage> {
     try {
       await this.ensureUserPermissions();
       const currentUser = await account.get();
@@ -276,6 +275,34 @@ export class ChatService {  // Ensure user is authenticated
       }
     } catch (error: any) {
       throw new Error(`Failed to join chat room: ${error.message}`);
+    }
+  }
+
+  // Delete a chat room and all its messages
+  static async deleteChatRoom(chatRoomId: string): Promise<void> {
+    try {
+      await this.ensureUserPermissions();
+      
+      // Delete all messages in the chat room
+      const messages = await this.getChatMessages(chatRoomId, 1000); // Get all messages
+      for (const message of messages) {
+        if (message.$id) {
+          await databases.deleteDocument(DATABASE_ID, CHAT_MESSAGES_COLLECTION_ID, message.$id);
+        }
+      }
+
+      // Delete all participants
+      const participants = await this.getChatParticipants(chatRoomId);
+      for (const participant of participants) {
+        if (participant.$id) {
+          await databases.deleteDocument(DATABASE_ID, CHAT_PARTICIPANTS_COLLECTION_ID, participant.$id);
+        }
+      }
+
+      // Delete the chat room itself
+      await databases.deleteDocument(DATABASE_ID, CHAT_ROOMS_COLLECTION_ID, chatRoomId);
+    } catch (error: any) {
+      throw new Error(`Failed to delete chat room: ${error.message}`);
     }
   }
 }
