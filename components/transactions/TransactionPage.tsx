@@ -34,12 +34,11 @@ export const TransactionPage: React.FC<TransactionPageProps> = ({
       loadTransaction();
     }
   }, [transactionId]);
-
   const loadTransaction = async () => {
     if (!transactionId) return;
 
     try {
-      const txn = await TransactionService.getTransaction(transactionId);
+      const txn = await TransactionService.getTransactionWithChat(transactionId);
       setTransaction(txn);
     } catch (error) {
       console.error('Error loading transaction:', error);
@@ -188,17 +187,13 @@ export const TransactionPage: React.FC<TransactionPageProps> = ({
               </View>
             )}
           </View>
+        </View>        {/* Chat Section */}
+        <View style={styles.chatContainer}>
+          <TransactionChat
+            transaction={transaction}
+            onTransactionUpdate={handleTransactionUpdate}
+          />
         </View>
-
-        {/* Chat Section */}
-        {transaction.chatRoomId && (
-          <View style={styles.chatContainer}>
-            <TransactionChat
-              transaction={transaction}
-              onTransactionUpdate={handleTransactionUpdate}
-            />
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -321,8 +316,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginTop: 4,
-  },
-  chatContainer: {
+  },  chatContainer: {
     flex: 1,
     margin: 16,
     marginTop: 0,
@@ -330,6 +324,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'white',
     minHeight: 400,
+  },
+  noChatContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  noChatTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+    color: '#333',
+  },
+  noChatMessage: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   backButtonText: {
     color: Colors.light.tint,

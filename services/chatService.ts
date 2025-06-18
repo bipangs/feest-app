@@ -32,8 +32,7 @@ export class ChatService {  // Ensure user is authenticated
     } catch (error) {
       throw new Error('User not authenticated. Please log in and try again.');
     }
-  }
-  // Create a new chat room
+  }  // Create a new chat room
   static async createChatRoom(
     name: string,
     description: string,
@@ -44,13 +43,31 @@ export class ChatService {  // Ensure user is authenticated
       await this.ensureUserPermissions();
       const currentUser = await account.get();
 
+      // Get participant names
+      const participantNames = [currentUser.name];
+      for (const participantId of participants) {
+        if (participantId !== currentUser.$id) {          try {
+            // Get user profile directly by document ID (since documentId = userId)
+            const userProfile = await databases.getDocument(
+              DATABASE_ID,
+              USER_PROFILES_COLLECTION_ID,
+              participantId
+            );
+            participantNames.push(userProfile.fullName || userProfile.name || userProfile.email || 'Unknown User');
+          } catch (error) {
+            console.warn('Could not fetch participant name for:', participantId);
+            participantNames.push('Unknown User');
+          }
+        }
+      }
+
       const chatRoomData = {
         name,
         description,
         createdBy: currentUser.$id,
         createdByName: currentUser.name,
         participants: [currentUser.$id, ...participants],
-        participantNames: [currentUser.name], // Will be updated when participants join
+        participantNames,
         isPrivate,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -67,9 +84,11 @@ export class ChatService {  // Ensure user is authenticated
       await this.addParticipantToRoom(document.$id, currentUser.$id, currentUser.name, 'admin');
 
       // Add other participants as members
-      for (const participantId of participants) {
-        await this.addParticipantToRoom(document.$id, participantId, '', 'member');
-      }      return {
+      for (let i = 0; i < participants.length; i++) {
+        const participantId = participants[i];
+        const participantName = participantNames[i + 1] || 'Unknown User'; // +1 because creator is at index 0
+        await this.addParticipantToRoom(document.$id, participantId, participantName, 'member');
+      }return {
         $id: document.$id,
         name: document.name,
         description: document.description,
@@ -288,14 +307,6 @@ export class ChatService {  // Ensure user is authenticated
       for (const message of messages) {
         if (message.$id) {
           await databases.deleteDocument(DATABASE_ID, CHAT_MESSAGES_COLLECTION_ID, message.$id);
-        }
-      }
-
-      // Delete all participants
-      const participants = await this.getChatParticipants(chatRoomId);
-      for (const participant of participants) {
-        if (participant.$id) {
-          await databases.deleteDocument(DATABASE_ID, CHAT_PARTICIPANTS_COLLECTION_ID, participant.$id);
         }
       }
 

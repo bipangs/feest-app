@@ -42,26 +42,31 @@ export class TransactionService {
 
       // Get food item details
       console.log('📋 Getting food item details for transaction...');
-      const foodItem = await FoodService.getFoodItem(foodItemId);
-
-      // Create a private chat room for this transaction
+      const foodItem = await FoodService.getFoodItem(foodItemId);      // Create a private chat room for this transaction using food swap method
       console.log('💬 Creating chat room...');
-      const chatRoom = await ChatService.createChatRoom(
-        `Transaction: ${foodItem.title}`,
-        `Transaction chat for ${foodItem.title}`,
-        true, // Private
-        [ownerId, currentUser.$id] // Owner and requester
-      );
-      console.log('✅ Chat room created:', chatRoom.$id);
-
-      const transactionData = {
+      let chatRoom;
+      try {
+        chatRoom = await ChatService.createFoodSwapChatRoom(
+          foodItemId,
+          foodItem.title,
+          ownerId,
+          ownerName,
+          currentUser.$id,
+          currentUser.name || currentUser.email
+        );
+        console.log('✅ Chat room created:', chatRoom.$id);
+      } catch (chatError) {
+        console.warn('⚠️ Failed to create chat room during transaction creation:', chatError);
+        // Continue without chat room, it will be created later
+        chatRoom = null;
+      }      const transactionData = {
         foodItemId,
         foodTitle: foodItem.title,
         ownerId,
         ownerName,
         requesterId: currentUser.$id,
         requesterName: currentUser.name || currentUser.email,
-        chatRoomId: chatRoom.$id,
+        chatRoomId: chatRoom?.$id,
         status: 'pending' as const,
         requestMessage,
         requestedDate: new Date(),
@@ -76,10 +81,8 @@ export class TransactionService {
         ID.unique(),
         transactionData
       );
-      console.log('✅ Transaction document created:', response.$id);
-
-      // Send initial system message to chat
-      if (chatRoom.$id) {
+      console.log('✅ Transaction document created:', response.$id);      // Send initial system message to chat
+      if (chatRoom?.$id) {
         await ChatService.sendMessage(
           chatRoom.$id,
           `Transaction started for "${foodItem.title}". ${currentUser.name || currentUser.email} has requested this food item.`,
@@ -573,6 +576,74 @@ export class TransactionService {
       } as Transaction;
     } catch (error) {
       console.error('Error getting transaction by food item:', error);
+      throw error;
+    }
+  }
+
+  // Ensure a transaction has a chat room (create one if missing)
+  static async ensureChatRoom(transactionId: string): Promise<Transaction> {
+    try {
+      await this.ensureAuthenticated();
+      
+      const transaction = await this.getTransaction(transactionId);
+      
+      // If chat room already exists, return transaction as is
+      if (transaction.chatRoomId) {
+        return transaction;
+      }
+
+      // Create a new chat room for this transaction
+      console.log('🔧 Creating missing chat room for transaction:', transactionId);
+      const chatRoom = await ChatService.createFoodSwapChatRoom(
+        transaction.foodItemId,
+        transaction.foodTitle,
+        transaction.ownerId,
+        transaction.ownerName,
+        transaction.requesterId,
+        transaction.requesterName
+      );
+      
+      // Update transaction with the new chat room ID
+      const updatedData = {
+        chatRoomId: chatRoom.$id,
+        updatedAt: new Date(),
+      };
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        TRANSACTIONS_COLLECTION_ID,
+        transactionId,
+        updatedData
+      );      // Send initial system message to chat
+      if (chatRoom.$id) {
+        await ChatService.sendMessage(
+          chatRoom.$id,
+          `Chat room restored for transaction "${transaction.foodTitle}".`,
+          'system'
+        );
+      }
+
+      return { ...transaction, ...updatedData } as Transaction;
+    } catch (error) {
+      console.error('Error ensuring chat room:', error);
+      throw error;
+    }
+  }
+
+  // Get transaction and ensure it has a valid chat room
+  static async getTransactionWithChat(transactionId: string): Promise<Transaction> {
+    try {
+      let transaction = await this.getTransaction(transactionId);
+      
+      // If no chat room, create one
+      if (!transaction.chatRoomId) {
+        console.log('Transaction missing chat room, creating one...');
+        transaction = await this.ensureChatRoom(transactionId);
+      }
+      
+      return transaction;
+    } catch (error) {
+      console.error('Error getting transaction with chat:', error);
       throw error;
     }
   }

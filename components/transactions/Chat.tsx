@@ -7,16 +7,16 @@ import { Transaction } from '@/types/transaction';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface TransactionChatProps {
@@ -37,18 +37,18 @@ export const TransactionChat: React.FC<TransactionChatProps> = ({
 
   const isOwner = user?.$id === transaction.ownerId;
   const canComplete = isOwner && transaction.status === 'accepted';
-  const canAccept = isOwner && transaction.status === 'pending';
-
-  useEffect(() => {
+  const canAccept = isOwner && transaction.status === 'pending';  useEffect(() => {
     loadMessages();
     
     // Auto-refresh messages every 5 seconds
     const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
   }, [transaction.chatRoomId]);
-
   const loadMessages = async () => {
-    if (!transaction.chatRoomId) return;
+    if (!transaction.chatRoomId) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const chatMessages = await ChatService.getChatMessages(transaction.chatRoomId, 100);
@@ -223,11 +223,22 @@ export const TransactionChat: React.FC<TransactionChatProps> = ({
       default: return status;
     }
   };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading chat...</Text>
+      </View>
+    );
+  }
+
+  if (!transaction.chatRoomId) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="chatbubbles-outline" size={48} color="#666" />
+        <Text style={styles.noChatTitle}>Chat Unavailable</Text>
+        <Text style={styles.noChatMessage}>
+          This transaction doesn't have a chat room yet. It will be created automatically.
+        </Text>
       </View>
     );
   }
@@ -325,11 +336,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-  },
-  loadingContainer: {
+  },  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  noChatTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    color: '#333',
+  },
+  noChatMessage: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 24,
   },
   header: {
     backgroundColor: 'white',
