@@ -22,7 +22,6 @@ export class NotificationService {
       throw new Error('User not authenticated. Please log in and try again.');
     }
   }
-
   // Create a notification
   static async createNotification(
     fromUserId: string,
@@ -59,8 +58,18 @@ export class NotificationService {
         ...document,
         createdAt: new Date(document.createdAt),
       } as unknown as SimpleNotification;
-    } catch (error) {
-      console.error('Error creating notification:', error);
+    } catch (error: any) {
+      console.error('❌ Error creating notification:', error);
+      
+      // Provide specific error messages for common issues
+      if (error.code === 401 || error.type === 'user_unauthorized') {
+        throw new Error('PERMISSION_ERROR: The notification collection permissions need to be updated in Appwrite. Please check APPWRITE_PERMISSION_FIX.md for instructions.');
+      } else if (error.code === 404 || error.message?.includes('collection')) {
+        throw new Error('COLLECTION_ERROR: The notification collection does not exist or is misconfigured in Appwrite.');
+      } else if (error.message?.includes('authorized')) {
+        throw new Error('AUTHORIZATION_ERROR: Current user does not have permission to create notifications. Check Appwrite collection permissions.');
+      }
+      
       throw error;
     }
   }
@@ -216,6 +225,67 @@ export class NotificationService {
       console.error('Error getting unread count:', error);
       return 0;
     }
+  }
+
+  // Debug method to check collection permissions
+  static async checkCollectionPermissions(): Promise<void> {
+    try {
+      console.log('🔍 Checking notification collection permissions...');
+      
+      await this.ensureAuthenticated();
+      const currentUser = await account.get();
+      console.log('✅ User authenticated:', currentUser.email, 'ID:', currentUser.$id);
+      
+      // Try to read documents first
+      try {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          NOTIFICATION_COLLECTION_ID,
+          []
+        );
+        console.log('✅ Read permission works - found', response.total, 'notifications');
+      } catch (readError: any) {
+        console.log('❌ Read permission failed:', readError.message);
+      }
+      
+      // Try to create a test document
+      try {
+        const testNotification = {
+          fromUserId: currentUser.$id,
+          toUserId: currentUser.$id,
+          foodItemId: 'test',
+          type: 'food_request' as const,
+          message: 'Permission test',
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        
+        const testDoc = await databases.createDocument(
+          DATABASE_ID,
+          NOTIFICATION_COLLECTION_ID,
+          ID.unique(),
+          testNotification
+        );
+        
+        console.log('✅ Write permission works - test document created:', testDoc.$id);
+        
+        // Clean up test document
+        await databases.deleteDocument(DATABASE_ID, NOTIFICATION_COLLECTION_ID, testDoc.$id);
+        console.log('✅ Delete permission works - test document cleaned up');
+        
+      } catch (writeError: any) {
+        console.log('❌ Write permission failed:', writeError.message);
+        console.log('🔧 Solution: Update Appwrite collection permissions. See APPWRITE_PERMISSION_FIX.md');
+      }
+      
+    } catch (error) {
+      console.error('❌ Permission check failed:', error);
+    }
+  }
+
+  // Exported debug method for troubleshooting
+  static async debugPermissions(): Promise<void> {
+    return this.checkCollectionPermissions();
   }
 
   // Legacy method aliases for backward compatibility

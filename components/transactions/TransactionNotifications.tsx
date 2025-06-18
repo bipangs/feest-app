@@ -1,7 +1,9 @@
 import { NotificationsScreen } from '@/components/notifications';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { NotificationService } from '@/services/notificationService';
 import { TransactionService } from '@/services/transactionService';
+import { SimpleNotification } from '@/types/notification';
 import { Transaction } from '@/types/transaction';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -24,38 +26,60 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
 }) => {
   const { user } = useAuth();
   const [pendingRequests, setPendingRequests] = useState<Transaction[]>([]);
+  const [pendingNotifications, setPendingNotifications] = useState<SimpleNotification[]>([]);
   const [acceptedTransactions, setAcceptedTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'notifications' | 'transactions'>('notifications');
-
-  useEffect(() => {
-    if (activeTab === 'transactions') {
-      loadTransactionNotifications();
-    }
+  const [activeTab, setActiveTab] = useState<'notifications' | 'transactions'>('notifications');useEffect(() => {
+    loadTransactionNotifications();
   }, [activeTab]);
 
-  const loadTransactionNotifications = async () => {
+  useEffect(() => {
+    loadTransactionNotifications();
+  }, []);  const loadTransactionNotifications = async () => {
     try {
-      if (!user) return;
+      if (!user) {
+        console.log('⚠️ No user found, skipping transaction load');
+        return;
+      }
 
-      const userTransactions = await TransactionService.getUserTransactions();
+      console.log('📊 Loading transaction notifications for user:', user.$id);
+      setLoading(true);
       
-      // Filter pending requests where current user is the owner
+      // Load both notifications and transactions
+      const [notifications, userTransactions] = await Promise.all([
+        NotificationService.getUserNotifications(),
+        TransactionService.getUserTransactions()
+      ]);
+      
+      console.log('� Total notifications:', notifications.length);
+      console.log('�📋 All user transactions:', userTransactions.length);
+      
+      // Filter pending notifications where current user is the recipient (food owner)
+      const pendingNotifs = notifications.filter(
+        n => n.type === 'food_request' && !n.read
+      );
+      console.log('⏳ Pending notification requests (as owner):', pendingNotifs.length);
+      
+      // Filter pending requests where current user is the owner (these are transactions)
       const pending = userTransactions.filter(
         t => t.ownerId === user.$id && t.status === 'pending'
       );
+      console.log('⏳ Pending transaction requests (as owner):', pending.length);
       
       // Filter accepted transactions where current user is involved
       const accepted = userTransactions.filter(
         t => (t.ownerId === user.$id || t.requesterId === user.$id) && 
             t.status === 'accepted'
       );
+      console.log('✅ Accepted transactions:', accepted.length);
 
+      setPendingNotifications(pendingNotifs);
       setPendingRequests(pending);
       setAcceptedTransactions(accepted);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
+    } catch (error: any) {
+      console.error('❌ Error loading transaction notifications:', error);
+      Alert.alert('Error', `Failed to load transactions: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -64,6 +88,74 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
     setRefreshing(true);
     await loadTransactionNotifications();
     setRefreshing(false);
+  };
+
+  const handleAcceptNotification = async (notification: SimpleNotification) => {
+    Alert.alert(
+      'Accept Request',
+      `Accept food swap request for your food item?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          onPress: async () => {
+            try {
+              const { FoodService } = await import('@/services/foodService');
+              const result = await FoodService.respondToFoodSwapNotification(
+                notification.$id!,
+                'accepted'
+              );
+              
+              if (result.success) {
+                Alert.alert(
+                  'Request Accepted!',
+                  'A chat room has been created for you to coordinate the swap.',
+                  [{ text: 'OK' }]
+                );
+                
+                await loadTransactionNotifications();
+              } else {
+                Alert.alert('Error', result.message);
+              }
+            } catch (error: any) {
+              Alert.alert('Error', `Failed to accept request: ${error.message}`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRejectNotification = async (notification: SimpleNotification) => {
+    Alert.alert(
+      'Reject Request',
+      `Reject food swap request for your food item?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { FoodService } = await import('@/services/foodService');
+              const result = await FoodService.respondToFoodSwapNotification(
+                notification.$id!,
+                'rejected'
+              );
+              
+              if (result.success) {
+                Alert.alert('Request Rejected', 'The request has been rejected and the food item is available again.');
+                await loadTransactionNotifications();
+              } else {
+                Alert.alert('Error', result.message);
+              }
+            } catch (error: any) {
+              Alert.alert('Error', `Failed to reject request: ${error.message}`);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleAcceptRequest = async (transaction: Transaction) => {
@@ -120,7 +212,6 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
       ]
     );
   };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString([], { 
       month: 'short', 
@@ -130,6 +221,14 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
     });
   };
 
+  const formatNotificationDate = (date: Date) => {
+    return date.toLocaleDateString([], { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -137,6 +236,14 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
       </View>
     );
   }
+
+  // Debug log current state
+  console.log('🔍 Current state:', {
+    activeTab,
+    pendingNotifications: pendingNotifications.length,
+    pendingRequests: pendingRequests.length,
+    acceptedTransactions: acceptedTransactions.length
+  });
   return (
     <View style={styles.container}>
       {/* Tab Header */}
@@ -168,8 +275,48 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
-        >
-      {/* Pending Requests Section */}
+        >      {/* Pending Notifications Section */}
+      {pendingNotifications.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="notifications" size={20} color={Colors.light.tint} />
+            <Text style={styles.sectionTitle}>Pending Food Requests</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{pendingNotifications.length}</Text>
+            </View>
+          </View>
+          
+          {pendingNotifications.map((notification) => (
+            <View key={notification.$id} style={styles.notificationCard}>              <View style={styles.notificationHeader}>
+                <Text style={styles.requesterName}>Food Request</Text>
+                <Text style={styles.timestamp}>{formatNotificationDate(notification.createdAt)}</Text>
+              </View>
+              
+              <Text style={styles.message}>"{notification.message}"</Text>
+              
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rejectButton]}
+                  onPress={() => handleRejectNotification(notification)}
+                >
+                  <Ionicons name="close" size={16} color="#fff" />
+                  <Text style={styles.rejectButtonText}>Reject</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.acceptButton]}
+                  onPress={() => handleAcceptNotification(notification)}
+                >
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={styles.acceptButtonText}>Accept</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Pending Transaction Requests Section (fallback for any direct transaction requests) */}
       {pendingRequests.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -247,10 +394,8 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
               </View>
             </TouchableOpacity>
           ))}        </View>
-      )}
-
-      {/* Empty State */}
-      {pendingRequests.length === 0 && acceptedTransactions.length === 0 && (
+      )}      {/* Empty State */}
+      {pendingNotifications.length === 0 && pendingRequests.length === 0 && acceptedTransactions.length === 0 && (
         <View style={styles.emptyState}>
           <Ionicons name="notifications-outline" size={48} color="#ccc" />
           <Text style={styles.emptyTitle}>No notifications</Text>
