@@ -1,4 +1,6 @@
 import { CustomColors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -24,22 +26,28 @@ export const CustomInput: React.FC<CustomInputProps> = ({
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  
+  const colorScheme = useColorScheme();
+  const backgroundColor = useThemeColor({}, 'card');
+  const textColor = useThemeColor({}, 'text');
+  const borderColor = useThemeColor({}, 'border');
+  const iconColor = useThemeColor({}, 'icon');
 
   const togglePasswordVisibility = () => {
     setIsPasswordVisible(!isPasswordVisible);
   };
-
   return (
     <View style={styles.container}>
       <View style={[
         styles.inputContainer,
+        { backgroundColor, borderColor },
         isFocused && styles.inputContainerFocused,
         error && styles.inputContainerError
       ]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: textColor }]}
           placeholder={placeholder}
-          placeholderTextColor="#999"
+          placeholderTextColor={colorScheme === 'dark' ? CustomColors.mediumGray : '#999'}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
@@ -56,7 +64,7 @@ export const CustomInput: React.FC<CustomInputProps> = ({
             <Ionicons
               name={isPasswordVisible ? 'eye-off' : 'eye'}
               size={24}
-              color="#999"
+              color={iconColor}
             />
           </TouchableOpacity>
         )}
@@ -73,10 +81,8 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CustomColors.white,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E5E5',
     paddingHorizontal: 16,
     height: 56,
   },
@@ -89,7 +95,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: CustomColors.black,
   },
   eyeIcon: {
     padding: 4,

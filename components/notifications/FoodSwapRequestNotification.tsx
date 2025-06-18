@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Colors } from '@/constants/Colors';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { FoodService } from '@/services/foodService';
 import { SimpleNotification } from '@/types/notification';
 import React, { useState } from 'react';
@@ -17,6 +17,11 @@ export function FoodSwapRequestNotification({
 }: FoodSwapRequestNotificationProps) {
   const [responseMessage, setResponseMessage] = useState('');
   const [isResponding, setIsResponding] = useState(false);
+  
+  const tintColor = useThemeColor({}, 'tint');
+  const borderColor = useThemeColor({}, 'border');
+  const backgroundColor = useThemeColor({}, 'card');
+  const textColor = useThemeColor({}, 'text');
 
   const handleResponse = async (accept: boolean) => {
     if (isResponding) return;

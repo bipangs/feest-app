@@ -117,7 +117,7 @@ export default function ProfilesScreen() {
               <View style={styles.userCardContent}>
                 <View style={styles.avatarContainer}>
                   <View style={[styles.avatar, { backgroundColor: tintColor + '20' }]}>
-                    <Ionicons name="person" size={40} color={tintColor} />
+                    <Ionicons name="person" size={40} color={'#FFFFFF'} />
                   </View>
                   <TouchableOpacity 
                     style={[styles.editAvatarButton, { backgroundColor: tintColor }]}

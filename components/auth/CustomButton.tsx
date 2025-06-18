@@ -74,9 +74,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    // Elevation effects for raised appearance
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8, // Android shadow
   },
   primaryButton: {
     backgroundColor: CustomColors.darkForestGreen,
+    // Enhanced elevation for primary button
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
   },
   secondaryButton: {
     backgroundColor: '#F0F0F0',

@@ -53,43 +53,41 @@ export class FoodService {  // Ensure user is authenticated
       throw error;
     }
   }
-
   // Get proper image URL for viewing images
-  static getImageUrl(fileId: string): string {
+  static getImageUrl(fileId: string): URL {
     // Use the public view URL that works with authenticated sessions
-    return `https://syd.cloud.appwrite.io/v1/storage/buckets/${STORAGE_BUCKET_ID}/files/${fileId}/view?project=feest`;
+    const url = `https://syd.cloud.appwrite.io/v1/storage/buckets/${STORAGE_BUCKET_ID}/files/${fileId}/view?project=feest`;
+    return new URL(url);
   }
-
   // Get image URL with proper authentication headers
-  static async getAuthenticatedImageUrl(fileId: string): Promise<string> {
+  static async getAuthenticatedImageUrl(fileId: string): Promise<URL> {
     try {
       // Ensure user is authenticated
       await this.ensureAuthenticated();
       
       // Get the file preview URL that works with user session
       const url = storage.getFilePreview(STORAGE_BUCKET_ID, fileId, 800, 600);
-      return url.toString();
+      return url;
     } catch (error) {
       console.error('Error getting authenticated image URL:', error);
       // Fallback to public URL
       return this.getImageUrl(fileId);
     }
-  }  // Create a new food item
+  }// Create a new food item
   static async createFoodItem(foodData: Omit<FoodItem, '$id' | 'createdAt' | 'updatedAt'>): Promise<FoodItem> {
     try {
       // Ensure user is authenticated before creating food item
       await this.ensureUserPermissions();
       
       // Get current user to set as owner
-      const currentUser = await account.get();
-      
-      // Create document - Appwrite auto-generates the $id using ID.unique()
+      const currentUser = await account.get();      // Create document - Appwrite auto-generates the $id using ID.unique()
       const document = await databases.createDocument(
         DATABASE_ID,
         FOOD_COLLECTION_ID,
         ID.unique(), // This becomes the document's $id (the document name in the collection)
         {
           ...foodData,
+          imageUrl: foodData.imageUrl.toString(), // Convert URL to string for database storage - database expects imageUrl
           ownerId: currentUser.$id, // Reference to user document's $id
           expiryDate: foodData.expiryDate.toISOString(),
           createdAt: new Date().toISOString(),
@@ -97,6 +95,7 @@ export class FoodService {  // Ensure user is authenticated
         }
       );      return {
         ...document,
+        imageUrl: this.fixImageUrl(document.imageUrl || ''), // Convert back to URL from database imageUrl field
         expiryDate: new Date(document.expiryDate),
         createdAt: new Date(document.createdAt),
         updatedAt: new Date(document.updatedAt),
@@ -106,8 +105,7 @@ export class FoodService {  // Ensure user is authenticated
       console.error('Error creating food item:', error);
       throw error;
     }
-  }// Get all available food items
-  static async getFoodItems(status?: string): Promise<FoodItem[]> {
+  }  static async getFoodItems(status?: string): Promise<FoodItem[]> {
     try {
       const queries = status ? [Query.equal('status', status)] : [];
       queries.push(Query.orderDesc('createdAt'));
@@ -119,7 +117,7 @@ export class FoodService {  // Ensure user is authenticated
       
       return response.documents.map(doc => ({
         ...doc,
-        imageUri: this.fixImageUrl(doc.imageUri || ''),
+        imageUrl: this.fixImageUrl(doc.imageUrl || ''), // Database field is imageUrl, convert to imageUrl for FoodItem interface
         expiryDate: new Date(doc.expiryDate),
         createdAt: new Date(doc.createdAt),
         updatedAt: new Date(doc.updatedAt),
@@ -129,7 +127,7 @@ export class FoodService {  // Ensure user is authenticated
       // Return mock data for development/testing
       return status ? mockFoodItems.filter(item => item.status === status) : mockFoodItems;
     }
-  }  // Get all available food items with efficient IP location resolution
+  }// Get all available food items with efficient IP location resolution
   static async getFoodItemsWithLocation(status?: string): Promise<FoodItem[]> {
     try {
       const queries = status ? [Query.equal('status', status)] : [];
@@ -139,10 +137,9 @@ export class FoodService {  // Ensure user is authenticated
         DATABASE_ID,
         FOOD_COLLECTION_ID,
         queries
-      );
-        const items = response.documents.map(doc => ({
+      );      const items = response.documents.map(doc => ({
         ...doc,
-        imageUri: this.fixImageUrl(doc.imageUri || ''),
+        imageUrl: this.fixImageUrl(doc.imageUrl || ''), // Database field is imageUrl, convert to imageUrl for FoodItem interface
         expiryDate: new Date(doc.expiryDate),
         createdAt: new Date(doc.createdAt),
         updatedAt: new Date(doc.updatedAt),
@@ -161,9 +158,7 @@ export class FoodService {  // Ensure user is authenticated
       const resolvedMockData = await LocationUtils.processFoodItemLocations(filteredMockData);
       return resolvedMockData;
     }
-  }
-
-  // Get food items by user
+  }  // Get food items by user
   static async getUserFoodItems(userId: string): Promise<FoodItem[]> {
     try {
       const response = await databases.listDocuments(
@@ -174,9 +169,9 @@ export class FoodService {  // Ensure user is authenticated
           Query.orderDesc('createdAt')
         ]
       );
-        return response.documents.map(doc => ({
+      return response.documents.map(doc => ({
         ...doc,
-        imageUri: this.fixImageUrl(doc.imageUri || ''),
+        imageUrl: this.fixImageUrl(doc.imageUrl || ''), // Database field is imageUrl, convert to imageUrl for FoodItem interface
         expiryDate: new Date(doc.expiryDate),
         createdAt: new Date(doc.createdAt),
         updatedAt: new Date(doc.updatedAt),
@@ -185,7 +180,7 @@ export class FoodService {  // Ensure user is authenticated
       console.error('Error fetching user food items:', error);
       throw error;
     }
-  }  // Get a single food item by ID
+  }// Get a single food item by ID
   static async getFoodItem(foodItemId: string): Promise<FoodItem> {
     try {
       // The foodItemId parameter is the document's $id within the collection
@@ -195,7 +190,7 @@ export class FoodService {  // Ensure user is authenticated
         foodItemId // This is the document's $id (document name in collection)
       );      return {
         ...response,
-        imageUri: this.fixImageUrl(response.imageUri || ''),
+        imageUrl: this.fixImageUrl(response.imageUrl || ''), // Database field is imageUrl, convert to imageUrl for FoodItem interface
         expiryDate: new Date(response.expiryDate),
         createdAt: new Date(response.createdAt),
         updatedAt: new Date(response.updatedAt),
@@ -269,15 +264,13 @@ export class FoodService {  // Ensure user is authenticated
       console.error('Error deleting food item:', error);
       throw error;
     }
-  }
-
-  // Upload image to storage
-  static async uploadFoodImage(imageUri: string, fileName: string): Promise<string> {
+  }  // Upload image to storage
+  static async uploadFoodImage(imageUrl: string, fileName: string): Promise<URL> {
     try {
       // Ensure user is authenticated before uploading
       await this.ensureAuthenticated();
       
-      const response = await fetch(imageUri);
+      const response = await fetch(imageUrl);
       const blob = await response.blob();
         const file = await storage.createFile(
         STORAGE_BUCKET_ID,
@@ -286,18 +279,17 @@ export class FoodService {  // Ensure user is authenticated
           name: fileName,
           type: blob.type,
           size: blob.size,
-          uri: imageUri,
+          uri: imageUrl,
         }
       );        
       
       // Return a public view URL using the file's $id
-      const imageUrl = `https://syd.cloud.appwrite.io/v1/storage/buckets/${STORAGE_BUCKET_ID}/files/${file.$id}/view?project=feest`;
-      return imageUrl;
+      return this.getImageUrl(file.$id);
     } catch (error) {
       console.error('Error uploading image:', error);
       throw error;
     }
-  }  // Create food request
+  }// Create food request
   static async createFoodRequest(requestData: Omit<FoodRequest, '$id' | 'createdAt'>): Promise<FoodRequest> {
     try {
       // Ensure user is authenticated before creating request
@@ -675,20 +667,19 @@ export class FoodService {  // Ensure user is authenticated
       throw new Error('User session expired. Please log in again.');
     }
   }
-
   // Fix image URLs that might have problematic parameters
-  static fixImageUrl(imageUri: string): string {
+  static fixImageUrl(imageUrl: string): URL {
     try {
       // If it's already a regular URL (not an Appwrite storage URL), return as is
-      if (!imageUri.includes('cloud.appwrite.io') || !imageUri.includes('/storage/buckets/')) {
-        return imageUri;
+      if (!imageUrl.includes('cloud.appwrite.io') || !imageUrl.includes('/storage/buckets/')) {
+        return new URL(imageUrl);
       }
 
       // Extract file ID from the URL
-      const urlParts = imageUri.split('/');
+      const urlParts = imageUrl.split('/');
       const filesIndex = urlParts.indexOf('files');
       if (filesIndex === -1 || filesIndex + 1 >= urlParts.length) {
-        return imageUri;
+        return new URL(imageUrl);
       }
 
       const fileId = urlParts[filesIndex + 1].split('?')[0]; // Remove query parameters
@@ -697,7 +688,7 @@ export class FoodService {  // Ensure user is authenticated
       return this.getImageUrl(fileId);
     } catch (error) {
       console.error('Error fixing image URL:', error);
-      return imageUri; // Return original URL if fixing fails
+      return new URL(imageUrl); // Return original URL if fixing fails
     }
   }
 
@@ -926,7 +917,7 @@ const mockFoodItems: FoodItem[] = [
     $id: '1',
     title: 'Fresh Homemade Bread',
     description: 'Delicious sourdough bread baked this morning. Perfect for sharing!',
-    imageUri: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=800',
+    imageUrl: new URL('https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=800'),
     expiryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days
     status: 'available',
     ownerId: 'user1',
@@ -943,7 +934,7 @@ const mockFoodItems: FoodItem[] = [
     $id: '2',
     title: 'Organic Vegetables Bundle',
     description: 'Fresh organic vegetables from our garden: tomatoes, lettuce, carrots, and herbs.',
-    imageUri: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800',
+    imageUrl: new URL('https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800'),
     expiryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
     status: 'available',
     ownerId: 'user2',
@@ -955,12 +946,11 @@ const mockFoodItems: FoodItem[] = [
     category: 'vegetables',
     createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     updatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-  },
-  {
+  },  {
     $id: '3',
     title: 'Leftover Pizza Slices',
     description: 'Half a large pepperoni pizza from last night. Still tastes great!',
-    imageUri: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800',
+    imageUrl: new URL('https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800'),
     expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
     status: 'available',
     ownerId: 'user3',
@@ -977,7 +967,7 @@ const mockFoodItems: FoodItem[] = [
     $id: '4',
     title: 'Fresh Fruit Basket',
     description: 'Assorted seasonal fruits: apples, pears, bananas, and oranges.',
-    imageUri: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=800',
+    imageUrl: new URL('https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=800'),
     expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days
     status: 'available',
     ownerId: 'user4',

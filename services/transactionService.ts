@@ -156,7 +156,7 @@ export class TransactionService {
   // Complete transaction with photo proof (owner completes)
   static async completeTransaction(
     transactionId: string,
-    completionPhotoUri: string
+    completionPhotoUrl: string
   ): Promise<Transaction> {
     try {
       await this.ensureAuthenticated();
@@ -175,7 +175,7 @@ export class TransactionService {
 
       const updatedData = {
         status: 'completed' as const,
-        completionPhoto: completionPhotoUri,
+        completionPhoto: completionPhotoUrl,
         completedDate: completionDate,
         chatExpiresAt,
         updatedAt: new Date(),
@@ -189,7 +189,7 @@ export class TransactionService {
       );
 
       // Store completion proof
-      await this.createCompletionProof(transactionId, completionPhotoUri);
+      await this.createCompletionProof(transactionId, completionPhotoUrl);
 
       // Update food item status to completed
       await FoodService.updateFoodItemStatus(transaction.foodItemId, 'completed');
@@ -445,7 +445,7 @@ export class TransactionService {
   // Create completion proof
   static async createCompletionProof(
     transactionId: string,
-    photoUri: string
+    photoUrl: string
   ): Promise<CompletionProof> {
     try {
       await this.ensureAuthenticated();
@@ -453,7 +453,7 @@ export class TransactionService {
 
       const proofData = {
         transactionId,
-        photoUri,
+        photoUrl,
         takenAt: new Date(),
         uploadedBy: currentUser.$id,
       };

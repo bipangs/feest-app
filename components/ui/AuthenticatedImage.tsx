@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, ImageStyle, StyleProp, Text, View } from 'react-native';
 
 interface AuthenticatedImageProps {
-  uri: string;
+  uri: string | URL;
   style: StyleProp<ImageStyle>;
   onError?: (error: any) => void;
   placeholder?: React.ReactNode;
@@ -16,21 +16,21 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   onError,
   placeholder
 }) => {
-  const [imageUri, setImageUri] = useState<string>(uri);
+  const [imageUrl, setImageUrl] = useState<string>(uri instanceof URL ? uri.toString() : uri);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const processImageUri = async () => {
+    const processImageUrl = async () => {
       try {
         setLoading(true);
         setError(false);
-        
-        // Fix the URI if it has problematic parameters
-        const fixedUri = FoodService.fixImageUrl(uri);
-        setImageUri(fixedUri);
+          // Convert URL to string if needed, then fix the URL if it has problematic parameters
+        const urlString = uri instanceof URL ? uri.toString() : uri;
+        const fixedUrl = FoodService.fixImageUrl(urlString);
+        setImageUrl(fixedUrl.toString());
       } catch (err) {
-        console.error('Error processing image URI:', err);
+        console.error('Error processing image URL:', err);
         setError(true);
         onError?.(err);
       } finally {
@@ -39,7 +39,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
     };
 
     if (uri) {
-      processImageUri();
+      processImageUrl();
     } else {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
     );
   }
 
-  if (error || !imageUri) {
+  if (error || !imageUrl) {
     return placeholder || (
       <View style={[style, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }]}>
         <Ionicons name="image" size={40} color="#ccc" />
@@ -72,7 +72,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
 
   return (
     <Image
-      source={{ uri: imageUri }}
+      source={{ uri: imageUrl }}
       style={style}
       onError={handleImageError}
       onLoad={() => setError(false)}

@@ -1,190 +1,138 @@
-import { CustomColors } from '@/constants/Colors';
+import { ChatRoomItem } from '@/components/chat/ChatRoomItem';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { ChatService } from '@/services/chatService';
 import { ChatRoom } from '@/types/chat';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
-  const { userProfile } = useAuth();
+  const { userProfile, user } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showCreateRoom, setShowCreateRoom] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [newRoomDescription, setNewRoomDescription] = useState('');
+  const [loading, setLoading] = useState(true);
+  const colorScheme = useColorScheme();
+  
+  // Theme colors
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const tintColor = useThemeColor({}, 'tint');
+  const iconColor = useThemeColor({}, 'icon');
+  const cardColor = useThemeColor({}, 'card');
+  const borderColor = useThemeColor({}, 'border');
+
+  const loadChatRooms = async () => {
+    try {
+      if (user) {
+        const rooms = await ChatService.getUserChatRooms();
+        setChatRooms(rooms);
+      }
+    } catch (error) {
+      console.error('Error loading chat rooms:', error);
+      Alert.alert('Error', 'Failed to load chat rooms');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
       loadChatRooms();
-    }, [])
+    }, [user])
   );
 
-  const loadChatRooms = async () => {
-    if (!userProfile) return;
-    
-    try {
-      setLoading(true);
-      const rooms = await ChatService.getUserChatRooms();
-      setChatRooms(rooms);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to load chat rooms');
-    } finally {
-      setLoading(false);
-    }
+  const createNewChatRoom = () => {
+    Alert.prompt(
+      'Create Chat Room',
+      'Enter a name for the new chat room:',
+      async (roomName) => {
+        if (roomName?.trim()) {
+          try {
+            await ChatService.createChatRoom(
+              roomName.trim(),
+              `Created by ${userProfile?.name || 'User'}`,
+              false // public room
+            );
+            loadChatRooms();
+            Alert.alert('Success', 'Chat room created successfully!');
+          } catch (error) {
+            console.error('Error creating chat room:', error);
+            Alert.alert('Error', 'Failed to create chat room');
+          }
+        }
+      }
+    );
+  };  const openChatRoom = (room: ChatRoom) => {
+    // Navigate to the chat room screen using dynamic route
+    router.push({
+      pathname: '/chat-room/[roomId]',
+      params: { roomId: room.$id! }
+    });
   };
 
-  const createChatRoom = async () => {
-    if (!newRoomName.trim()) {
-      Alert.alert('Error', 'Please enter a room name');
-      return;
-    }
-
+  const joinChatRoom = async (roomId: string) => {
     try {
-      setLoading(true);
-      await ChatService.createChatRoom(newRoomName.trim(), newRoomDescription.trim());
-      setNewRoomName('');
-      setNewRoomDescription('');
-      setShowCreateRoom(false);
+      await ChatService.joinChatRoom(roomId);
+      Alert.alert('Success', 'Joined chat room successfully!');
       loadChatRooms();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create chat room');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error joining chat room:', error);
+      Alert.alert('Error', 'Failed to join chat room');
     }
-  };
-
-  const renderChatRoom = ({ item }: { item: ChatRoom }) => (
-    <TouchableOpacity style={styles.chatRoomItem}>
-      <View style={styles.chatRoomHeader}>
-        <Text style={styles.roomName}>{item.name}</Text>
-        <Text style={styles.lastMessageTime}>
-          {item.lastMessageTime ? formatTime(item.lastMessageTime) : 'No messages'}
-        </Text>
-      </View>
-      {item.description && (
-        <Text style={styles.roomDescription} numberOfLines={1}>
-          {item.description}
-        </Text>
-      )}
-      {item.lastMessage && (
-        <Text style={styles.lastMessage} numberOfLines={1}>
-          {item.lastMessage}
-        </Text>
-      )}
-      <View style={styles.chatRoomFooter}>
-        <Text style={styles.participantCount}>
-          {item.participants.length} participant{item.participants.length !== 1 ? 's' : ''}
-        </Text>
-        {item.createdBy === userProfile?.$id && (
-          <View style={styles.ownerBadge}>
-            <Text style={styles.ownerText}>Owner</Text>
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
-
-  if (!userProfile) {
+  };  const renderChatRoom = ({ item }: { item: ChatRoom }) => (
+    <ChatRoomItem chatRoom={item} onPress={openChatRoom} />
+  );if (!userProfile) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Please log in to access chat</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: cardColor, borderBottomColor: borderColor }]}>
+          <Text style={[styles.title, { color: textColor }]}>Chat</Text>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="chatbubbles-outline" size={64} color={iconColor} />
+          <Text style={[styles.emptyText, { color: textColor }]}>Please log in to access chat features</Text>
+        </View>
       </SafeAreaView>
     );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>      <View style={styles.header}>
-        <Text style={styles.title}>Chat Rooms</Text>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setShowCreateRoom(!showCreateRoom)}
-        >
-          <Text style={styles.createButtonText}>+</Text>
+  }  return (
+    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={['top']}>
+      <View style={[styles.header, { backgroundColor: cardColor, borderBottomColor: borderColor }]}>
+        <Text style={[styles.title, { color: textColor }]}>Chat Rooms</Text>
+        <TouchableOpacity style={[styles.createButton, { backgroundColor: tintColor }]} onPress={createNewChatRoom}>
+          <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
-
-      {showCreateRoom && (
-        <View style={styles.createRoomForm}>
-          <TextInput
-            style={styles.input}
-            placeholder="Room name"
-            value={newRoomName}
-            onChangeText={setNewRoomName}
-            maxLength={50}
-          />
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            placeholder="Room description (optional)"
-            value={newRoomDescription}
-            onChangeText={setNewRoomDescription}
-            maxLength={200}
-            multiline
-          />
-          <View style={styles.formButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => {
-                setShowCreateRoom(false);
-                setNewRoomName('');
-                setNewRoomDescription('');
-              }}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.createRoomButton]}
-              onPress={createChatRoom}
-              disabled={loading}
-            >
-              <Text style={styles.createRoomButtonText}>
-                {loading ? 'Creating...' : 'Create'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+      
+      {loading ? (
+        <View style={[styles.emptyContainer, { backgroundColor }]}>
+          <Text style={[styles.emptyText, { color: textColor }]}>Loading chat rooms...</Text>
         </View>
-      )}      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{userProfile.name}</Text>
-      </View>
-
-      <FlatList
-        data={chatRooms}
-        renderItem={renderChatRoom}
-        keyExtractor={(item) => item.$id!}
-        style={styles.chatRoomList}
-        contentContainerStyle={styles.chatRoomListContent}
-        refreshing={loading}
-        onRefresh={loadChatRooms}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              No chat rooms yet. Create one to get started!
-            </Text>
-          </View>
-        }
-      />
+      ) : chatRooms.length === 0 ? (
+        <View style={[styles.emptyContainer, { backgroundColor }]}>
+          <Ionicons name="chatbubbles-outline" size={64} color={iconColor} />
+          <Text style={[styles.emptyText, { color: textColor }]}>No chat rooms yet</Text>
+          <Text style={[styles.emptySubtext, { color: iconColor }]}>
+            Create a new chat room or join food swap chats through transactions
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={chatRooms}
+          renderItem={renderChatRoom}
+          keyExtractor={(item) => item.$id!}
+          style={[styles.chatList, { backgroundColor }]}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -192,161 +140,42 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: CustomColors.black,
-  },  createButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,    backgroundColor: CustomColors.darkForestGreen,
+  },
+  createButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  createButtonText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  createRoomForm: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    fontSize: 16,
-  },
-  descriptionInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  formButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f0f0f0',
-  },
-  cancelButtonText: {
-    color: CustomColors.black,
-    fontWeight: '600',
-  },
-  createRoomButton: {
-    backgroundColor: CustomColors.darkForestGreen,
-  },
-  createRoomButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },  userInfo: {
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  userName: {
-    fontSize: 16,
-    color: CustomColors.black,
-    fontWeight: '500',
-  },
-  chatRoomList: {
-    flex: 1,
-  },
-  chatRoomListContent: {
     padding: 20,
   },
-  chatRoomItem: {
-    backgroundColor: 'white',
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  chatRoomHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  roomName: {
+  emptyText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: CustomColors.black,
-    flex: 1,
-  },
-  lastMessageTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  roomDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  lastMessage: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 8,
-  },
-  chatRoomFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  participantCount: {
-    fontSize: 12,
-    color: '#666',
-  },
-  ownerBadge: {
-    backgroundColor: CustomColors.darkForestGreen,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  ownerText: {
-    color: 'white',
-    fontSize: 10,
     fontWeight: '600',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60,
-  },  emptyStateText: {
-    fontSize: 16,
-    color: '#666',
+    marginTop: 16,
     textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  chatList: {
+    flex: 1,
+    paddingTop: 8,
   },
 });

@@ -2,7 +2,7 @@ export interface FoodItem {
   $id?: string;
   title: string;
   description: string;
-  imageUri: string;
+  imageUrl: URL;
   expiryDate: Date;
   status: 'available' | 'requested' | 'completed';
   ownerId: string;

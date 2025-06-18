@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Colors } from '@/constants/Colors';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import React from 'react';
 import {
     Dimensions,
@@ -20,13 +20,14 @@ interface HorizontalScrollSectionProps {
 
 const { width } = Dimensions.get('window');
 
-export function HorizontalScrollSection({
-  title,
+export function HorizontalScrollSection({  title,
   data,
   renderItem,
   onSeeAll,
   emptyMessage = 'No items available'
 }: HorizontalScrollSectionProps) {
+  const tintColor = useThemeColor({}, 'tint');
+  
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
@@ -35,7 +36,7 @@ export function HorizontalScrollSection({
         </ThemedText>
         {onSeeAll && (
           <TouchableOpacity onPress={onSeeAll}>
-            <ThemedText style={styles.seeAllText}>See All</ThemedText>
+            <ThemedText style={[styles.seeAllText, { color: tintColor }]}>See All</ThemedText>
           </TouchableOpacity>
         )}
       </View>
@@ -77,9 +78,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  seeAllText: {
-    color: Colors.light.tint,
+  },  seeAllText: {
     fontSize: 14,
     fontWeight: '500',
   },

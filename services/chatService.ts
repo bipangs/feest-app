@@ -382,4 +382,36 @@ export class ChatService {  // Ensure user is authenticated
       throw new Error(`Failed to create food swap chat room: ${error.message}`);
     }
   }
+
+  // Get a specific chat room by ID
+  static async getChatRoomById(chatRoomId: string): Promise<ChatRoom> {
+    try {
+      await this.ensureAuthenticated();
+
+      const document = await databases.getDocument(
+        DATABASE_ID,
+        CHAT_ROOMS_COLLECTION_ID,
+        chatRoomId
+      );
+
+      return {
+        $id: document.$id,
+        name: document.name,
+        description: document.description,
+        createdBy: document.createdBy,
+        createdByName: document.createdByName,
+        participants: document.participants,
+        participantNames: document.participantNames,
+        isPrivate: document.isPrivate,
+        lastMessage: document.lastMessage,
+        lastMessageTime: document.lastMessageTime ? new Date(document.lastMessageTime) : undefined,
+        foodItemId: document.foodItemId,
+        chatType: document.chatType,
+        createdAt: new Date(document.createdAt),
+        updatedAt: new Date(document.updatedAt),
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to fetch chat room: ${error.message}`);
+    }
+  }
 }

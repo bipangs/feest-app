@@ -122,8 +122,8 @@ export const FoodRequestModal: React.FC<FoodRequestModalProps> = ({
 
         <ScrollView style={styles.content}>
           {/* Food Item Info */}
-          <View style={styles.foodItemCard}>            {foodItem.imageUri && (
-              <AuthenticatedImage uri={foodItem.imageUri} style={styles.foodImage} />
+          <View style={styles.foodItemCard}>            {foodItem.imageUrl && (
+              <AuthenticatedImage uri={foodItem.imageUrl} style={styles.foodImage} />
             )}
             <View style={styles.foodInfo}>
               <View style={styles.titleRow}>

@@ -7,15 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { FoodCamera } from './FoodCamera';
 
@@ -31,7 +31,7 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUri, setImageUri] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [category, setCategory] = useState<FoodCategory>('other');  const [location, setLocation] = useState('');
@@ -115,7 +115,7 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
       return;
     }
 
-    if (!imageUri) {
+    if (!imageUrl) {
       Alert.alert('Error', 'Please take a photo of the food');
       return;
     }
@@ -126,14 +126,13 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
     }
 
     setLoading(true);
-    try {
-      // Upload image first
+    try {      // Upload image first
       const fileName = `food_${Date.now()}.jpg`;
-      const uploadedImageUri = await FoodService.uploadFoodImage(imageUri, fileName);      // Create food item
+      const uploadedImageUrl = await FoodService.uploadFoodImage(imageUrl, fileName);      // Create food item
       const foodData: Omit<FoodItem, '$id' | 'createdAt' | 'updatedAt'> = {
         title: title.trim(),
         description: description.trim(),
-        imageUri: uploadedImageUri,
+        imageUrl: uploadedImageUrl,
         expiryDate,
         status: 'available',
         ownerId: user.$id,
@@ -172,7 +171,7 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
   };
 
   const handleImageCaptured = (uri: string) => {
-    setImageUri(uri);
+    setImageUrl(uri);
     setShowCamera(false);
   };
 
@@ -200,9 +199,8 @@ export const AddFoodForm: React.FC<AddFoodFormProps> = ({
           <TouchableOpacity 
             style={styles.photoButton} 
             onPress={() => setShowCamera(true)}
-          >
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.previewImage} />
+          >            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.previewImage} />
             ) : (
               <View style={styles.photoPlaceholder}>
                 <Ionicons name="camera" size={40} color={Colors.light.tabIconDefault} />

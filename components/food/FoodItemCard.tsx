@@ -7,11 +7,11 @@ import { FoodItem } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 interface FoodItemCardProps {
@@ -148,9 +148,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
     return item.expiryDate.getTime() < today.getTime();
   };return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.imageContainer}>        {item.imageUri && !imageLoadError ? (
+      <View style={styles.imageContainer}>        {item.imageUrl && !imageLoadError ? (
           <AuthenticatedImage 
-            uri={item.imageUri}
+            uri={item.imageUrl}
             style={styles.image}
             onError={(error) => {
               console.error('Error loading image:', error?.nativeEvent?.error || 'Unknown error');

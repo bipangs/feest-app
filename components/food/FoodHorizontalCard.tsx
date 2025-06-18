@@ -53,7 +53,7 @@ export function FoodHorizontalCard({ item, onPress, showDebugInfo = false }: Foo
       activeOpacity={0.7}
     >
       <ThemedView style={styles.card}>
-        <AuthenticatedImage uri={item.imageUri} style={styles.image} />
+        <AuthenticatedImage uri={item.imageUrl} style={styles.image} />
         
         <View style={styles.content}>
           <View style={styles.header}>

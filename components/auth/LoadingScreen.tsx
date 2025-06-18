@@ -1,13 +1,16 @@
 import { CustomColors } from '@/constants/Colors';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { Image } from 'expo-image';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 export const LoadingScreen: React.FC = () => {
+  const backgroundColor = useThemeColor({}, 'background');
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <Image
-        source={require('@/assets/images/feest_logo.jpg')}
+        source={require('@/assets/images/feest_loading.png')}
         style={styles.logo}
         contentFit="contain"
       />
@@ -23,7 +26,6 @@ export const LoadingScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: CustomColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },

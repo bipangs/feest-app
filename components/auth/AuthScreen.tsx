@@ -1,16 +1,18 @@
 import { CustomColors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton } from './CustomButton';
@@ -27,6 +29,9 @@ export const AuthScreen: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const { login, register, loading } = useAuth();
+  const colorScheme = useColorScheme();
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -83,9 +88,8 @@ export const AuthScreen: React.FC = () => {
     setName('');
     setConfirmPassword('');
   };
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor }]}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -95,17 +99,19 @@ export const AuthScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           {/* Upper White Section */}
-          <View style={styles.upperSection}>
+          <View style={[styles.upperSection, { backgroundColor }]}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('@/assets/images/feest_logo.jpg')}
+                source={require('@/assets/images/feest_logo.png')}
                 style={styles.logo}
                 contentFit="contain"
               />
-              <Text style={styles.welcomeText}>
+              <Text style={[styles.welcomeText, { color: textColor }]}>
                 {authMode === 'login' ? 'Welcome Back!' : 'Join Feest'}
               </Text>
-              <Text style={styles.subtitleText}>
+              <Text style={[styles.subtitleText, { 
+                color: colorScheme === 'dark' ? CustomColors.mediumGray : '#666' 
+              }]}>
                 {authMode === 'login'
                   ? 'Sign in to continue to your account'
                   : 'Create your account to get started'}
@@ -181,7 +187,6 @@ export const AuthScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: CustomColors.white,
   },
   keyboardAvoid: {
     flex: 1,
@@ -191,7 +196,6 @@ const styles = StyleSheet.create({
   },
   upperSection: {
     flex: 0.4,
-    backgroundColor: CustomColors.white,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
   },
   lowerSection: {
     flex: 0.6,
-    backgroundColor: CustomColors.darkForestGreen,
+    backgroundColor: CustomColors.darkGreen,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -218,13 +222,11 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: CustomColors.black,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitleText: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
     lineHeight: 22,
   },
