@@ -8,7 +8,7 @@ export interface FoodItem {
   ownerId: string;
   ownerName: string;
   location?: string; // Human-readable address
-  locationIP: string; // IP address for location lookup (required)
+  locationIP?: string; // IP address for location lookup (optional)
   latitude?: number; // Derived from IP or GPS
   longitude?: number; // Derived from IP or GPS
   category?: string;

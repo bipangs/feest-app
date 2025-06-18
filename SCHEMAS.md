@@ -7,6 +7,7 @@ This document provides comprehensive documentation of all database schemas, Type
 - [User Management](#user-management)
 - [Food System](#food-system)
 - [Chat System](#chat-system)
+- [Notification System](#notification-system)
 - [Location Services](#location-services)
 - [Logging System](#logging-system)
 - [Storage System](#storage-system)
@@ -31,12 +32,14 @@ This document provides comprehensive documentation of all database schemas, Type
 ### Collection Overview
 | Collection Name | Collection ID | Purpose |
 |---|---|---|
-| User Profiles | `user-profiles` | Extended user profile data |
+| User Profiles | `user_profiles` | Extended user profile data |
 | Food Items | `food-items` | Food sharing listings |
 | Food Requests | `food-requests` | Requests for food items |
 | Chat Rooms | `chat-rooms` | Chat room metadata |
 | Chat Messages | `chat-messages` | Individual chat messages |
 | Chat Participants | `chat-participants` | Room membership tracking |
+| Food Swap Notifications | `food-swap-notifications` | Food request notifications |
+| Notification History | `notification-history` | User notification history tracking |
 
 ### Storage Buckets
 | Bucket Name | Bucket ID | Purpose |
@@ -48,7 +51,7 @@ This document provides comprehensive documentation of all database schemas, Type
 ## User Management
 
 ### UserProfile Interface
-**Collection ID**: `user-profiles`
+**Collection ID**: `user_profiles`
 
 ```typescript
 interface UserProfile {
@@ -227,6 +230,91 @@ interface ChatParticipant {
 
 ---
 
+## Notification System
+
+### FoodSwapNotification Interface
+**Collection ID**: `food-swap-notifications`
+
+```typescript
+interface FoodSwapNotification {
+  $id?: string;                    // Appwrite document ID (auto-generated)
+  foodItemId: string;              // Reference to FoodItem.$id
+  foodTitle: string;               // Cached food title for performance
+  foodImageUri: string;            // Cached food image URL
+  ownerId: string;                 // Food item owner's user ID
+  ownerName: string;               // Cached owner name
+  requesterId: string;             // User requesting the food
+  requesterName: string;           // Cached requester name
+  message?: string;                // Optional message from requester
+  status: 'pending' | 'accepted' | 'rejected';  // Notification status
+  type: 'food_request';            // Notification type
+  read: boolean;                   // Read status
+  acceptedAt?: Date;               // When request was accepted
+  rejectedAt?: Date;               // When request was rejected
+  transactionId?: string;          // Reference to Transaction.$id if accepted
+  chatRoomId?: string;             // Reference to ChatRoom.$id if chat initiated
+  createdAt: Date;                 // Notification creation timestamp
+  updatedAt: Date;                 // Last update timestamp
+}
+```
+
+**Validation Rules:**
+- `foodItemId`: Required, must reference existing FoodItem
+- `ownerId`: Required, must reference existing UserProfile
+- `requesterId`: Required, must reference existing UserProfile
+- `status`: Required, one of: 'pending', 'accepted', 'rejected'
+- `type`: Required, currently only 'food_request'
+- `read`: Required, defaults to false
+- `createdAt`, `updatedAt`: ISO 8601 date strings
+
+### NotificationHistory Interface
+**Collection ID**: `notification-history`
+
+```typescript
+interface NotificationHistory {
+  $id?: string;                    // Appwrite document ID (auto-generated)
+  userId: string;                  // User this history belongs to
+  notificationId: string;          // Reference to original notification
+  type: 'food_request_sent' | 'food_request_received' | 'food_request_accepted' | 'food_request_rejected';
+  title: string;                   // History entry title
+  description: string;             // Detailed description
+  relatedUserId: string;           // Other user involved in the interaction
+  relatedUserName: string;         // Cached related user name
+  foodItemId?: string;             // Reference to FoodItem.$id if applicable
+  foodTitle?: string;              // Cached food title if applicable
+  transactionId?: string;          // Reference to Transaction.$id if applicable
+  read: boolean;                   // Read status
+  createdAt: Date;                 // History entry creation timestamp
+}
+```
+
+**Validation Rules:**
+- `userId`: Required, must reference existing UserProfile
+- `notificationId`: Required, must reference existing FoodSwapNotification
+- `type`: Required, one of: 'food_request_sent', 'food_request_received', 'food_request_accepted', 'food_request_rejected'
+- `title`: Required, 1-200 characters
+- `description`: Required, 1-500 characters
+- `relatedUserId`: Required, must reference existing UserProfile
+- `read`: Required, defaults to false
+- `createdAt`: ISO 8601 date string
+
+### Type Definitions
+```typescript
+// Type aliases for better type safety
+type NotificationType = FoodSwapNotification['type'];
+type NotificationStatus = FoodSwapNotification['status'];
+type HistoryType = NotificationHistory['type'];
+```
+
+### Notification Workflow
+1. **Food Request Creation**: When a user requests food, a `FoodSwapNotification` is created for the owner
+2. **Status Updates**: Owner can accept/reject, updating notification status
+3. **History Tracking**: Each status change creates entries in `NotificationHistory`
+4. **Transaction Creation**: Accepted requests trigger transaction creation
+5. **Chat Initiation**: Optional chat room creation for communication
+
+---
+
 ## Location Services
 
 ### LocationData Interface
@@ -396,7 +484,7 @@ ChatRoom (1) ──┐
 
 ### Recommended Indexes
 
-#### user-profiles Collection
+#### user_profiles Collection
 ```javascript
 // Primary indexes
 { "userId": 1 }         // Unique index for user lookup
@@ -714,6 +802,21 @@ class LocationService {
 }
 ```
 
+#### NotificationService (services/notificationService.ts)
+```typescript
+class NotificationService {
+  // Notification operations
+  static createFoodSwapNotification(notificationData: Omit<FoodSwapNotification, '$id' | 'createdAt' | 'updatedAt'>): Promise<FoodSwapNotification>
+  static getUserNotifications(userId: string): Promise<FoodSwapNotification[]>
+  static updateNotificationStatus(notificationId: string, status: FoodSwapNotification['status']): Promise<void>
+  static deleteNotification(notificationId: string): Promise<void>
+  
+  // Utility functions
+  static markAsRead(notificationId: string): Promise<void>
+  static fetchNotificationHistory(userId: string): Promise<NotificationHistory[]>
+}
+```
+
 ### Error Handling
 
 #### Common Error Types
@@ -916,19 +1019,44 @@ interface Migration {
 
 - **Notification System**
   ```typescript
-  interface Notification {
-    $id?: string;
-    userId: string;       // Recipient
-    title: string;        // Notification title
-    message: string;      // Notification body
-    type: 'food_request' | 'chat_message' | 'food_expiring' | 'system';
-    relatedId?: string;   // Related document ID
-    read: boolean;        // Read status
-    createdAt: Date;
+  interface FoodSwapNotification {
+    $id?: string;                    // Appwrite document ID (auto-generated)
+    foodItemId: string;              // Reference to FoodItem.$id
+    foodTitle: string;               // Cached food title for performance
+    foodImageUri: string;            // Cached food image URL
+    ownerId: string;                 // Food item owner's user ID
+    ownerName: string;               // Cached owner name
+    requesterId: string;             // User requesting the food
+    requesterName: string;           // Cached requester name
+    message?: string;                // Optional message from requester
+    status: 'pending' | 'accepted' | 'rejected';  // Notification status
+    type: 'food_request';            // Notification type
+    read: boolean;                   // Read status
+    acceptedAt?: Date;               // When request was accepted
+    rejectedAt?: Date;               // When request was rejected
+    transactionId?: string;          // Reference to Transaction.$id if accepted
+    chatRoomId?: string;             // Reference to ChatRoom.$id if chat initiated
+    createdAt: Date;                 // Notification creation timestamp
+    updatedAt: Date;                 // Last update timestamp
   }
-  ```
 
-#### Planned v1.2 Features
+  interface NotificationHistory {
+    $id?: string;                    // Appwrite document ID (auto-generated)
+    userId: string;                  // User this history belongs to
+    notificationId: string;          // Reference to original notification
+    type: 'food_request_sent' | 'food_request_received' | 'food_request_accepted' | 'food_request_rejected';
+    title: string;                   // History entry title
+    description: string;             // Detailed description
+    relatedUserId: string;           // Other user involved in the interaction
+    relatedUserName: string;         // Cached related user name
+    foodItemId?: string;             // Reference to FoodItem.$id if applicable
+    foodTitle?: string;              // Cached food title if applicable
+    transactionId?: string;          // Reference to Transaction.$id if applicable
+    read: boolean;                   // Read status
+    createdAt: Date;                 // History entry creation timestamp
+  }
+
+  // Type aliases for better type safety#### Planned v1.2 Features
 - **Community Features**
   ```typescript
   interface Community {
@@ -1003,7 +1131,7 @@ contexts/
 
 #### Collections
 - Use kebab-case: `food-items`, `chat-messages`
-- Descriptive and plural: `user-profiles`, `food-requests`
+- Descriptive and plural: `user_profiles`, `food-requests`
 
 #### Fields
 - Use camelCase: `createdAt`, `lastMessageTime`

@@ -35,6 +35,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (profileData: Partial<UserProfile>) => Promise<void>;
   verifyPassword: (password: string) => Promise<boolean>;
+  testSession: () => Promise<boolean>;
   error: string | null;
 }
 
@@ -52,25 +53,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
+  const [error, setError] = useState<string | null>(null);  useEffect(() => {
     checkUser();
   }, []);
   const checkUser = async () => {
     try {
+      setLoading(true);
       const currentUser = await account.get();
-      setUser(currentUser);
+      // Only update user state if it's different from current state
+      if (!user || user.$id !== currentUser.$id) {
+        setUser(currentUser);
+      }
       
-      // Fetch user profile
-      await fetchUserProfile(currentUser.$id);
+      // Fetch user profile only if we don't have one or if user changed
+      if (!userProfile || userProfile.userId !== currentUser.$id) {
+        await fetchUserProfile(currentUser.$id);
+      }
     } catch (error) {
-      setUser(null);
-      setUserProfile(null);
+      console.log('No active session found:', error);
+      // Only update state if current state is not null
+      if (user !== null) {
+        setUser(null);
+      }
+      if (userProfile !== null) {
+        setUserProfile(null);
+      }
     } finally {
       setLoading(false);
     }
-  };  const fetchUserProfile = async (userId: string) => {
+  };const fetchUserProfile = async (userId: string) => {
     try {
       // Fetch profile directly using userId as document ID
       const profile = await databases.getDocument(
@@ -79,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userId
       );
       
-      setUserProfile({
+      const profileData = {
         $id: profile.$id,
         userId: profile.userId,
         name: profile.name,
@@ -89,12 +100,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         location: profile.location || '',
         createdAt: new Date(profile.createdAt),
         updatedAt: new Date(profile.updatedAt),
-      });
+      };
+
+      // Only update state if profile data is different
+      if (!userProfile || JSON.stringify(userProfile) !== JSON.stringify(profileData)) {
+        setUserProfile(profileData);
+      }
     } catch (error) {
       console.warn('User profile not found - user may need to complete profile setup:', error);
-      setUserProfile(null);
+      // Only set to null if it's not already null
+      if (userProfile !== null) {
+        setUserProfile(null);
+      }
     }
-  };const createUserProfile = async (userId: string, email: string, name: string) => {
+  };  const createUserProfile = async (userId: string, email: string, name: string) => {
     try {
       // Create new profile using userId as document ID
       const profile = await databases.createDocument(
@@ -111,7 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedAt: new Date().toISOString(),
         }
       );
-      setUserProfile({
+      
+      const profileData = {
+        $id: profile.$id,
         userId: profile.userId,
         name: profile.name,
         email: profile.email,
@@ -120,31 +141,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         location: profile.location || '',
         createdAt: new Date(profile.createdAt),
         updatedAt: new Date(profile.updatedAt),
-      });
+      };
+      
+      // Only update if profile is different
+      if (!userProfile || JSON.stringify(userProfile) !== JSON.stringify(profileData)) {
+        setUserProfile(profileData);
+      }
       console.log('✅ User profile created successfully in database');
     } catch (error: any) {
       console.error('❌ Failed to create user profile:', error);
       // Re-throw the error so registration knows it failed
       throw new Error(`Failed to create user profile: ${error.message}`);
     }
-  };
-  const login = async (email: string, password: string) => {
+  };const login = async (email: string, password: string) => {
     try {
       setError(null);
       setLoading(true);
       await account.createEmailPasswordSession(email, password);
       const currentUser = await account.get();
-      setUser(currentUser);
       
-      // Fetch user profile after successful login
-      await fetchUserProfile(currentUser.$id);
+      // Only update user state if it's different
+      if (!user || user.$id !== currentUser.$id) {
+        setUser(currentUser);
+      }
+      
+      // Fetch user profile after successful login only if needed
+      if (!userProfile || userProfile.userId !== currentUser.$id) {
+        await fetchUserProfile(currentUser.$id);
+      }
     } catch (error: any) {
       setError(error.message || 'Login failed');
       throw error;
     } finally {
       setLoading(false);
     }
-  };  const register = async (email: string, password: string, name: string) => {
+  };const register = async (email: string, password: string, name: string) => {
     try {
       setError(null);
       setLoading(true);
@@ -169,16 +200,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };const logout = async () => {
+  };  const logout = async () => {
     try {
       await account.deleteSessions();
-      setUser(null);
-      setUserProfile(null);
+      // Only update state if not already null
+      if (user !== null) {
+        setUser(null);
+      }
+      if (userProfile !== null) {
+        setUserProfile(null);
+      }
     } catch (error: any) {
       setError(error.message || 'Logout failed');
     }
-  };
-  const updateProfile = async (profileData: Partial<UserProfile>) => {
+  };  const updateProfile = async (profileData: Partial<UserProfile>) => {
     try {
       if (!userProfile?.$id) {
         throw new Error('No user profile found');
@@ -199,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       );
 
-      setUserProfile({
+      const newProfileData = {
         $id: updatedProfile.$id,
         userId: updatedProfile.userId,
         name: updatedProfile.name,
@@ -209,7 +244,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         location: updatedProfile.location || '',
         createdAt: new Date(updatedProfile.createdAt),
         updatedAt: new Date(updatedProfile.updatedAt),
-      });
+      };
+
+      // Only update state if profile data changed
+      if (JSON.stringify(userProfile) !== JSON.stringify(newProfileData)) {
+        setUserProfile(newProfileData);
+      }
       
       console.log('✅ Profile updated successfully in database');
     } catch (error: any) {
@@ -239,8 +279,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const testSession = async () => {
+    try {
+      const currentUser = await account.get();
+      console.log('✅ Session test successful:', {
+        userId: currentUser.$id,
+        email: currentUser.email,
+        name: currentUser.name
+      });
+      return true;
+    } catch (error: any) {
+      console.error('❌ Session test failed:', error);
+      return false;
+    }
+  };
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, login, register, logout, updateProfile, verifyPassword, error }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, login, register, logout, updateProfile, verifyPassword, error, testSession }}>
       {children}
     </AuthContext.Provider>
   );

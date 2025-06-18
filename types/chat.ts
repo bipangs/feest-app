@@ -9,6 +9,9 @@ export interface ChatRoom {
   isPrivate: boolean;
   lastMessage?: string;
   lastMessageTime?: Date;
+  // Food swap related fields
+  foodItemId?: string; // Reference to food item if this is a swap chat
+  chatType?: 'general' | 'food_swap'; // Type of chat room
   createdAt: Date;
   updatedAt: Date;
 }

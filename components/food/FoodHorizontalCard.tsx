@@ -1,13 +1,13 @@
 import { LocationDebugInfo } from '@/components/debug/LocationDebugInfo';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { AuthenticatedImage } from '@/components/ui/AuthenticatedImage';
 import { Colors } from '@/constants/Colors';
 import { FoodItem } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
     Dimensions,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -53,7 +53,7 @@ export function FoodHorizontalCard({ item, onPress, showDebugInfo = false }: Foo
       activeOpacity={0.7}
     >
       <ThemedView style={styles.card}>
-        <Image source={{ uri: item.imageUri }} style={styles.image} />
+        <AuthenticatedImage uri={item.imageUri} style={styles.image} />
         
         <View style={styles.content}>
           <View style={styles.header}>

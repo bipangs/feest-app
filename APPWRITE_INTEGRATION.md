@@ -6,7 +6,7 @@ The profile management system now fully integrates with Appwrite for data storag
 
 ## 📊 **Database Schema**
 
-### **User Profiles Collection (`user-profiles`)**
+### **User Profiles Collection (`user_profiles`)**
 ```typescript
 interface UserProfile {
   $id?: string;           // Appwrite document ID
@@ -26,7 +26,7 @@ The system automatically creates user profiles during registration:
 
 1. **Account Creation** - New Appwrite user account
 2. **Session Establishment** - User logs in automatically
-3. **Profile Creation** - Document created in user-profiles collection
+3. **Profile Creation** - Document created in user_profiles collection
 4. **Duplicate Prevention** - Checks for existing profiles before creating new ones
 
 ## 🔧 **Implementation Details**

@@ -26,7 +26,6 @@ export class TransactionService {
       throw new Error('User not authenticated. Please log in and try again.');
     }
   }
-
   // Create a new transaction when someone requests food
   static async createTransaction(
     foodItemId: string,
@@ -35,17 +34,25 @@ export class TransactionService {
     requestMessage?: string
   ): Promise<Transaction> {
     try {
+      console.log('🏗️ TransactionService.createTransaction called with:', { foodItemId, ownerId, ownerName });
+      
       await this.ensureAuthenticated();
-      const currentUser = await account.get();      // Get food item details
+      const currentUser = await account.get();
+      console.log('👤 Transaction requester:', currentUser.email);
+
+      // Get food item details
+      console.log('📋 Getting food item details for transaction...');
       const foodItem = await FoodService.getFoodItem(foodItemId);
 
       // Create a private chat room for this transaction
+      console.log('💬 Creating chat room...');
       const chatRoom = await ChatService.createChatRoom(
         `Transaction: ${foodItem.title}`,
         `Transaction chat for ${foodItem.title}`,
         true, // Private
         [ownerId, currentUser.$id] // Owner and requester
       );
+      console.log('✅ Chat room created:', chatRoom.$id);
 
       const transactionData = {
         foodItemId,
@@ -62,12 +69,14 @@ export class TransactionService {
         updatedAt: new Date(),
       };
 
+      console.log('💾 Creating transaction document...');
       const response = await databases.createDocument(
         DATABASE_ID,
         TRANSACTIONS_COLLECTION_ID,
         ID.unique(),
         transactionData
       );
+      console.log('✅ Transaction document created:', response.$id);
 
       // Send initial system message to chat
       if (chatRoom.$id) {
@@ -158,10 +167,8 @@ export class TransactionService {
 
       if (transaction.status !== 'accepted') {
         throw new Error('Transaction must be accepted before completion');
-      }
-
-      const completionDate = new Date();
-      const chatExpiresAt = new Date(completionDate.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+      }      const completionDate = new Date();
+      const chatExpiresAt = new Date(completionDate.getTime() + 3 * 60 * 60 * 1000); // 3 hours from now
 
       const updatedData = {
         status: 'completed' as const,
@@ -185,10 +192,9 @@ export class TransactionService {
       await FoodService.updateFoodItemStatus(transaction.foodItemId, 'completed');
 
       // Send system message to chat with photo
-      if (transaction.chatRoomId) {
-        await ChatService.sendMessage(
+      if (transaction.chatRoomId) {        await ChatService.sendMessage(
           transaction.chatRoomId,
-          `Transaction completed! ${transaction.ownerName} has provided the food with photo proof. This chat will be automatically deleted in 6 hours.`,
+          `Transaction completed! ${transaction.ownerName} has provided the food with photo proof. This chat will be automatically deleted in 3 hours.`,
           'system'
         );
 
@@ -254,6 +260,49 @@ export class TransactionService {
       return { ...transaction, ...updatedData } as Transaction;
     } catch (error) {
       console.error('Error cancelling transaction:', error);
+      throw error;
+    }
+  }
+
+  // Reject a transaction (owner rejects the request)
+  static async rejectTransaction(transactionId: string): Promise<Transaction> {
+    try {
+      await this.ensureAuthenticated();
+      const currentUser = await account.get();
+
+      const transaction = await this.getTransaction(transactionId);
+
+      if (transaction.ownerId !== currentUser.$id) {
+        throw new Error('Only the owner can reject this transaction');
+      }
+
+      if (transaction.status !== 'pending') {
+        throw new Error('Transaction can only be rejected when pending');
+      }
+
+      const rejectedData = {
+        status: 'cancelled' as const,
+        updatedAt: new Date(),
+      };
+
+      const response = await databases.updateDocument(
+        DATABASE_ID,
+        TRANSACTIONS_COLLECTION_ID,
+        transactionId,
+        rejectedData
+      );
+
+      // Update food item status back to available
+      await FoodService.updateFoodItemStatus(transaction.foodItemId, 'available');
+
+      // Delete the chat room if it exists
+      if (transaction.chatRoomId) {
+        await ChatService.deleteChatRoom(transaction.chatRoomId);
+      }
+
+      return { ...transaction, ...rejectedData };
+    } catch (error) {
+      console.error('Error rejecting transaction:', error);
       throw error;
     }
   }
@@ -349,6 +398,47 @@ export class TransactionService {
     }
   }
 
+  // Get user transactions for a specific food item
+  static async getUserTransactionsForFood(foodItemId: string): Promise<Transaction[]> {
+    try {
+      await this.ensureAuthenticated();
+      const currentUser = await account.get();
+
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        TRANSACTIONS_COLLECTION_ID,
+        [
+          Query.equal('foodItemId', foodItemId),
+          Query.equal('requesterId', currentUser.$id),
+          Query.orderDesc('createdAt')
+        ]
+      );
+
+      return response.documents.map(doc => ({
+        $id: doc.$id,
+        foodItemId: doc.foodItemId,
+        foodTitle: doc.foodTitle,
+        ownerId: doc.ownerId,
+        ownerName: doc.ownerName,
+        requesterId: doc.requesterId,
+        requesterName: doc.requesterName,
+        chatRoomId: doc.chatRoomId,
+        status: doc.status,
+        requestMessage: doc.requestMessage,
+        completionPhoto: doc.completionPhoto,
+        requestedDate: new Date(doc.requestedDate),
+        acceptedDate: doc.acceptedDate ? new Date(doc.acceptedDate) : undefined,
+        completedDate: doc.completedDate ? new Date(doc.completedDate) : undefined,
+        chatExpiresAt: doc.chatExpiresAt ? new Date(doc.chatExpiresAt) : undefined,
+        createdAt: new Date(doc.createdAt),
+        updatedAt: new Date(doc.updatedAt),
+      })) as Transaction[];
+    } catch (error) {
+      console.error('Error getting user transactions for food item:', error);
+      throw error;
+    }
+  }
+
   // Create completion proof
   static async createCompletionProof(
     transactionId: string,
@@ -399,19 +489,46 @@ export class TransactionService {
         if (transaction.chatRoomId) {
           // Delete the chat room and its messages
           await ChatService.deleteChatRoom(transaction.chatRoomId);
-          
-          // Update transaction to remove chat room reference
+            // Update transaction to remove chat room reference
           await databases.updateDocument(
             DATABASE_ID,
             TRANSACTIONS_COLLECTION_ID,
             transaction.$id,
-            { chatRoomId: null }
+            { 
+              chatRoomId: null,
+              updatedAt: new Date().toISOString()
+            }
           );
+          
+          console.log(`Cleaned up expired chat for transaction: ${transaction.$id}`);
         }
       }
     } catch (error) {
       console.error('Error cleaning up expired chats:', error);
       throw error;
+    }
+  }
+
+  // Initialize transaction service (call this when app starts)
+  static async initialize(): Promise<void> {
+    try {
+      console.log('Initializing TransactionService...');
+      
+      // Clean up any expired chats immediately
+      await this.cleanupExpiredChats();
+      
+      // Set up periodic cleanup every hour
+      setInterval(async () => {
+        try {
+          await this.cleanupExpiredChats();
+        } catch (error) {
+          console.error('Periodic chat cleanup failed:', error);
+        }
+      }, 60 * 60 * 1000); // 1 hour interval
+      
+      console.log('TransactionService initialized with periodic chat cleanup');
+    } catch (error) {
+      console.error('Failed to initialize TransactionService:', error);
     }
   }
 

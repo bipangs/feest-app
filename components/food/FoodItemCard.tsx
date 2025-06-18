@@ -1,17 +1,17 @@
+import { FoodSwapRequestButton } from '@/components/food/FoodSwapRequestButton';
+import { AuthenticatedImage } from '@/components/ui/AuthenticatedImage';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { FoodService } from '@/services/foodService';
-import { TransactionService } from '@/services/transactionService';
 import { FoodItem } from '@/types/food';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface FoodItemCardProps {
@@ -88,49 +88,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
       console.error('Error formatting date:', error);
       return 'Date unavailable';
     }
-  };
-  const handleRequest = async () => {
-    if (!user) {
-      Alert.alert('Error', 'Please login to request food');
-      return;
-    }
-
-    if (isOwner) {
-      Alert.alert('Error', 'You cannot request your own food item');
-      return;
-    }
-
-    Alert.prompt(
-      'Request Food',
-      'Add a message (optional):',
-      async (message) => {
-        try {
-          // Create transaction instead of just a request
-          await TransactionService.createTransaction(
-            item.$id!,
-            item.ownerId,
-            item.ownerName,
-            message || undefined
-          );
-          
-          Alert.alert(
-            'Success', 
-            'Food request sent successfully! A private chat has been created with the owner.',
-            [{ text: 'OK' }]
-          );
-          onRefresh?.();
-        } catch (error) {
-          console.error('Error creating transaction:', error);
-          Alert.alert('Error', 'Failed to send request. Please try again.');
-        }
-      },
-      'plain-text',
-      '',
-      'default'
-    );
-  };
-
-  const handleMarkComplete = async () => {
+  };  const handleMarkComplete = async () => {
     Alert.alert(
       'Mark as Complete',
       'Are you sure you want to mark this item as completed?',
@@ -191,15 +149,22 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
   };return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.imageContainer}>        {item.imageUri && !imageLoadError ? (
-          <Image 
-            source={{ uri: item.imageUri }} 
+          <AuthenticatedImage 
+            uri={item.imageUri}
             style={styles.image}
             onError={(error) => {
-              console.error('Error loading image:', error.nativeEvent?.error || 'Unknown error');
+              console.error('Error loading image:', error?.nativeEvent?.error || 'Unknown error');
               setImageLoadError(true);
             }}
+            placeholder={
+              <View style={[styles.image, styles.placeholderImage]}>
+                <Ionicons name="image" size={40} color="#ccc" />
+                <Text style={styles.placeholderText}>Image unavailable</Text>
+              </View>
+            }
           />
-        ) : (          <View style={[styles.image, styles.placeholderImage]}>
+        ) : (
+          <View style={[styles.image, styles.placeholderImage]}>
             <Ionicons name="image" size={40} color="#ccc" />
             <Text style={styles.placeholderText}>
               {imageLoadError ? 'Image unavailable' : 'No image'}
@@ -245,15 +210,13 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({
               <Text style={styles.detailText}>{item.location}</Text>
             </View>
           )}
-        </View>
-
-        {showActions && (
+        </View>        {showActions && (
           <View style={styles.actions}>
             {!isOwner && item.status === 'available' && (
-              <TouchableOpacity style={styles.requestButton} onPress={handleRequest}>
-                <Ionicons name="hand-left" size={16} color="white" />
-                <Text style={styles.requestButtonText}>Request Food</Text>
-              </TouchableOpacity>
+              <FoodSwapRequestButton 
+                foodItem={item}
+                onRequestSent={onRefresh}
+              />
             )}
             
             {isOwner && (
@@ -377,25 +340,10 @@ const styles = StyleSheet.create({
   expiringSoonText: {
     color: '#F59E0B',
     fontWeight: '600',
-  },
-  actions: {
+  },  actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  requestButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.tint,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  requestButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
   },
   ownerActions: {
     flexDirection: 'row',

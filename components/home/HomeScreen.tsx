@@ -35,42 +35,58 @@ export default function HomeScreen() {
   const { user, userProfile } = useAuth();
   const { foodItems, loading: foodLoading, refreshing: foodRefreshing, refresh: refreshFood } = useFoodItems();
   const { upcomingEvents, loading: eventsLoading, refreshing: eventsRefreshing, refresh: refreshEvents } = useEvents();
-  
-  const [userLocation, setUserLocation] = useState<LocationState | null>(null);
-  const [nearestFoodItems, setNearestFoodItems] = useState<(FoodItem & { distance: number })[]>([]);  const [nearestEvents, setNearestEvents] = useState<(Event & { distance: number })[]>([]);
+    const [userLocation, setUserLocation] = useState<LocationState | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showFoodModal, setShowFoodModal] = useState(false);
-
-  useEffect(() => {
+  const [showFoodModal, setShowFoodModal] = useState(false);  const [nearestFoodItems, setNearestFoodItems] = useState<(FoodItem & { distance: number })[]>([]);
+  const [nearestEvents, setNearestEvents] = useState<(Event & { distance: number })[]>([]);  useEffect(() => {
     getUserLocation();
   }, []);
-  useEffect(() => {
-    if (userLocation && foodItems.length > 0) {
-      // Food items now have resolved coordinates from IP addresses
-      const itemsWithCoords = foodItems.filter(item => 
-        item.latitude && item.longitude && item.status === 'available'
-      );
-      
-      const nearest = LocationService.getNearestItems(
-        itemsWithCoords,
-        userLocation,
-        20 // 20km radius
-      );
-      setNearestFoodItems(nearest.slice(0, 10)); // Show top 10
-    }
-  }, [userLocation, foodItems]);
 
+  // Update nearest food items when location or food items change
   useEffect(() => {
-    if (userLocation && upcomingEvents.length > 0) {
-      const nearest = LocationService.getNearestItems(
-        upcomingEvents,
-        userLocation,
-        30 // 30km radius for events
-      );
-      setNearestEvents(nearest.slice(0, 10)); // Show top 10
+    if (!userLocation) {
+      setNearestFoodItems([]);
+      return;
     }
-  }, [userLocation, upcomingEvents]);
+
+    if (foodItems.length === 0) {
+      setNearestFoodItems([]);
+      return;
+    }
+
+    // Food items now have resolved coordinates from IP addresses
+    const itemsWithCoords = foodItems.filter(item => 
+      item.latitude && item.longitude && item.status === 'available'
+    );
+    
+    const nearest = LocationService.getNearestItems(
+      itemsWithCoords,
+      userLocation,
+      20 // 20km radius
+    );
+    setNearestFoodItems(nearest.slice(0, 10)); // Show top 10
+  }, [userLocation?.latitude, userLocation?.longitude, foodItems.length]);
+
+  // Update nearest events when location or events change
+  useEffect(() => {
+    if (!userLocation) {
+      setNearestEvents([]);
+      return;
+    }
+
+    if (upcomingEvents.length === 0) {
+      setNearestEvents([]);
+      return;
+    }
+
+    const nearest = LocationService.getNearestItems(
+      upcomingEvents,
+      userLocation,
+      30 // 30km radius for events
+    );
+    setNearestEvents(nearest.slice(0, 10)); // Show top 10
+  }, [userLocation?.latitude, userLocation?.longitude, upcomingEvents.length]);
 
   const getUserLocation = async () => {
     try {
@@ -160,8 +176,7 @@ export default function HomeScreen() {
           </ThemedText>
         </View>
       )}
-    </View>
-  );
+    </View>  );
 
   return (
     <SafeAreaView style={styles.container}>

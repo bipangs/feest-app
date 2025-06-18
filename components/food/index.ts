@@ -5,4 +5,6 @@ export { FoodItemCard } from './FoodItemCard';
 export { FoodListingModal } from './FoodListingModal';
 export { FoodMap } from './FoodMap';
 export { default as FoodScreen } from './FoodScreen';
+export { FoodSwapDemoScreen } from './FoodSwapDemoScreen';
+export { FoodSwapRequestButton } from './FoodSwapRequestButton';
 

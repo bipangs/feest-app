@@ -305,4 +305,70 @@ export class ChatService {  // Ensure user is authenticated
       throw new Error(`Failed to delete chat room: ${error.message}`);
     }
   }
+
+  // Create a food swap request chat room
+  static async createFoodSwapChatRoom(
+    foodItemId: string,
+    foodTitle: string,
+    ownerId: string,
+    ownerName: string,
+    requesterId: string,
+    requesterName: string
+  ): Promise<ChatRoom> {
+    try {
+      await this.ensureUserPermissions();
+
+      const chatRoomName = `Swap: ${foodTitle}`;
+      const description = `Food swap discussion between ${ownerName} and ${requesterName}`;
+
+      const chatRoomData = {
+        name: chatRoomName,
+        description,
+        createdBy: requesterId,
+        createdByName: requesterName,
+        participants: [ownerId, requesterId],
+        participantNames: [ownerName, requesterName],
+        isPrivate: true,
+        foodItemId, // Add food item reference
+        chatType: 'food_swap', // Mark as food swap chat
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const document = await databases.createDocument(
+        DATABASE_ID,
+        CHAT_ROOMS_COLLECTION_ID,
+        ID.unique(),
+        chatRoomData
+      );
+
+      // Add both participants to the room
+      await this.addParticipantToRoom(document.$id, ownerId, ownerName, 'admin');
+      await this.addParticipantToRoom(document.$id, requesterId, requesterName, 'member');
+
+      // Send initial system message about the swap request
+      await this.sendMessage(
+        document.$id,
+        `${requesterName} has requested to swap food item: ${foodTitle}`,
+        'system'
+      );
+
+      return {
+        $id: document.$id,
+        name: document.name,
+        description: document.description,
+        createdBy: document.createdBy,
+        createdByName: document.createdByName,
+        participants: document.participants,
+        participantNames: document.participantNames,
+        isPrivate: document.isPrivate,
+        lastMessage: document.lastMessage,
+        lastMessageTime: document.lastMessageTime ? new Date(document.lastMessageTime) : undefined,
+        createdAt: new Date(document.createdAt),
+        updatedAt: new Date(document.updatedAt),
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to create food swap chat room: ${error.message}`);
+    }
+  }
 }

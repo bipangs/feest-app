@@ -41,7 +41,7 @@ The registration system now correctly:
 
 1. **Creates new user account** in Appwrite
 2. **Logs in the user** to establish session
-3. **Creates user profile** in user-profiles database
+3. **Creates user profile** in user_profiles database
 4. **Handles duplicates** by updating existing profiles
 5. **Provides error handling** for edge cases
 
@@ -83,7 +83,7 @@ components/
 
 ### **Database Collections:**
 ```
-user-profiles (Appwrite)
+user_profiles (Appwrite)
   - userId (string)        # Links to Appwrite user
   - name (string)          # User's full name
   - email (string)         # Email address

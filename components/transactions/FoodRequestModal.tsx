@@ -1,3 +1,4 @@
+import { AuthenticatedImage } from '@/components/ui/AuthenticatedImage';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { TransactionService } from '@/services/transactionService';
@@ -6,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     Alert,
-    Image,
     Modal,
     ScrollView,
     StyleSheet,
@@ -122,9 +122,8 @@ export const FoodRequestModal: React.FC<FoodRequestModalProps> = ({
 
         <ScrollView style={styles.content}>
           {/* Food Item Info */}
-          <View style={styles.foodItemCard}>
-            {foodItem.imageUri && (
-              <Image source={{ uri: foodItem.imageUri }} style={styles.foodImage} />
+          <View style={styles.foodItemCard}>            {foodItem.imageUri && (
+              <AuthenticatedImage uri={foodItem.imageUri} style={styles.foodImage} />
             )}
             <View style={styles.foodInfo}>
               <View style={styles.titleRow}>
