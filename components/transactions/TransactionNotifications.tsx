@@ -1,4 +1,3 @@
-import { NotificationsScreen } from '@/components/notifications';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { NotificationService } from '@/services/notificationService';
@@ -8,13 +7,13 @@ import { Transaction } from '@/types/transaction';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 interface TransactionNotificationsProps {
@@ -51,9 +50,12 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
         NotificationService.getUserNotifications(),
         TransactionService.getUserTransactions()
       ]);
+        console.log('📬 Total notifications:', notifications.length);
+      console.log('📋 All user transactions:', userTransactions.length);
       
-      console.log('� Total notifications:', notifications.length);
-      console.log('�📋 All user transactions:', userTransactions.length);
+      // Log detailed data for debugging
+      console.log('📬 Raw notifications:', JSON.stringify(notifications, null, 2));
+      console.log('📋 Raw transactions:', JSON.stringify(userTransactions, null, 2));
       
       // Filter pending notifications where current user is the recipient (food owner)
       const pendingNotifs = notifications.filter(
@@ -264,19 +266,14 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
             Transactions
           </Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Content */}
-      {activeTab === 'notifications' ? (
-        <NotificationsScreen />
-      ) : (
-        <ScrollView 
-          style={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        >      {/* Pending Notifications Section */}
-      {pendingNotifications.length > 0 && (
+      </View>      {/* Content */}
+      <ScrollView 
+        style={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >      {/* Pending Notifications Section - Show in notifications tab */}
+      {activeTab === 'notifications' && pendingNotifications.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="notifications" size={20} color={Colors.light.tint} />
@@ -314,10 +311,8 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
             </View>
           ))}
         </View>
-      )}
-
-      {/* Pending Transaction Requests Section (fallback for any direct transaction requests) */}
-      {pendingRequests.length > 0 && (
+      )}      {/* Pending Transaction Requests Section - Show in notifications tab */}
+      {activeTab === 'notifications' && pendingRequests.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="notifications" size={20} color={Colors.light.tint} />
@@ -360,10 +355,8 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
             </View>
           ))}
         </View>
-      )}
-
-      {/* Accepted Transactions Section */}
-      {acceptedTransactions.length > 0 && (
+      )}      {/* Accepted Transactions Section - Show in transactions tab */}
+      {activeTab === 'transactions' && acceptedTransactions.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="chatbubbles" size={20} color={Colors.light.tint} />
@@ -393,19 +386,29 @@ export const TransactionNotifications: React.FC<TransactionNotificationsProps> =
                 <Text style={styles.statusText}>In Progress - Tap to chat</Text>
               </View>
             </TouchableOpacity>
-          ))}        </View>
-      )}      {/* Empty State */}
-      {pendingNotifications.length === 0 && pendingRequests.length === 0 && acceptedTransactions.length === 0 && (
+          ))}        </View>      )}
+
+      {/* Empty State */}
+      {activeTab === 'notifications' && pendingNotifications.length === 0 && pendingRequests.length === 0 && (
         <View style={styles.emptyState}>
           <Ionicons name="notifications-outline" size={48} color="#ccc" />
-          <Text style={styles.emptyTitle}>No notifications</Text>
+          <Text style={styles.emptyTitle}>No pending requests</Text>
           <Text style={styles.emptyMessage}>
-            Food swap requests and active transactions will appear here
+            Food swap requests will appear here when someone wants your food
+          </Text>
+        </View>
+      )}
+
+      {activeTab === 'transactions' && acceptedTransactions.length === 0 && (
+        <View style={styles.emptyState}>
+          <Ionicons name="chatbubbles-outline" size={48} color="#ccc" />
+          <Text style={styles.emptyTitle}>No active transactions</Text>
+          <Text style={styles.emptyMessage}>
+            Your accepted food swaps and active transactions will appear here
           </Text>
         </View>
       )}
         </ScrollView>
-      )}
     </View>
   );
 };
